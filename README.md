@@ -3,7 +3,7 @@
 リンクを開けばすぐ遊べるブラウザゲームを、**1日1本**公開するためのリポジトリです。
 `main` に push すると、組み立て（build）→ 確認（check）→ 公開（GitHub Pages）が自動で走ります。
 
-- 公開先: https://koki-ota0.github.io/game3/
+- 公開先: https://kokilux.github.io/game3/
 - ゲームの元データ（一覧・サイト設定）: `games.json`
 - 組み立て: `npm run build` → `dist/`
 - 確認: `npm run check`

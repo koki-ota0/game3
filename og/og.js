@@ -9,7 +9,7 @@
  *   - 失敗したら（オフライン等）静的な assets/ogp-fallback.jpg を返し、SNS のカードが壊れないようにする。
  *
  * 使い方:
- *   https://koki-ota0.github.io/game3/og?g=jubyou-pittari
+ *   https://kokilux.github.io/game3/og?g=jubyou-pittari
  *   → 1200x630 の PNG。そのまま OGP の og:image に指定できる。
  */
 const OG_W = 1200, OG_H = 630;
