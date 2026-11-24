@@ -19,6 +19,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a0d11;color:var(--in
 #hud{position:fixed;inset:0;pointer-events:none}
 #hud>*{pointer-events:auto}
 .hide{display:none!important}
+#hazBadge{position:fixed;left:50%;top:calc(104px + env(safe-area-inset-top));transform:translate(-50%,-6px);padding:6px 15px;border-radius:99px;background:#0b0f15e0;border:1px solid #ffd16677;color:#ffe6ab;font-weight:800;font-size:13px;letter-spacing:.02em;opacity:0;transition:opacity .16s,transform .16s;pointer-events:none;white-space:nowrap;z-index:60;box-shadow:0 6px 20px #00000055}
+#hazBadge.on{opacity:1;transform:translate(-50%,0)}
+#darkness{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 56%,#0000 0%,#0000 15%,#03050a 60%,#000 100%);opacity:0;transition:opacity .35s;z-index:40}
+#darkness.on{opacity:0.92}
 
 /* ── 上:HUD ── */
 #topwrap{position:absolute;left:10px;right:10px;top:calc(9px + env(safe-area-inset-top));
@@ -211,6 +215,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a0d11;color:var(--in
     <button id="pourBtn">注ぐ <small>長押し</small></button>
   </div>
 
+  <div id="hazBadge"></div>
+  <div id="darkness"></div>
   <div id="gain"></div>
   <div id="hint">ボタンを押しているあいだ、注がれます</div>
   <div id="toast"></div>
@@ -226,6 +232,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a0d11;color:var(--in
       <div><b>①</b><span>点線ぴったりで離す。<b>離したあとに数滴落ちる</b>ので、少し手前で。</span></div>
       <div><b>②</b><span>ぴったりなら、すぐ次のコップ。<b>続けるほど点が増える。</b></span></div>
       <div><b>③</b><span>だんだん細く、速くなる。<b>しくじると、そこで終わり。</b></span></div>
+      <div><b>④</b><span>3杯目から<b>妨害</b>。風で流速が脈打ち、目標線が揺れ、暗がりで見えなくなる。</span></div>
     </div>
     <div class="bestline">
       <span>ベスト</span><b id="titleBest">0</b><span>点</span>
@@ -283,6 +290,28 @@ let W = 0, H = 0, dpr = 1, S = 1;
 const BASE_SPEED = 14;
 const BASE_TOL = 3.4;
 const MAX_ML = 300;
+// ── 妨害 ──────────────────────────────────────────────
+//  2D 版は「注ぐ量そのもの」を揺さぶる。3D 版の風/揺れに対応する。
+//   wind  : 流速が脈打つ（一定に注げない）
+//   wobble: 目標線が左右にずれる（見る場所が定まらない）
+//   fog   : 画面が暗くなる
+//   extra : しずくが増える
+const HAZARDS = {
+  wind:   { name: '風',        icon: '~', dur: 2.8 },
+  wobble: { name: '揺れる線',  icon: 'o', dur: 2.6 },
+  fog:    { name: '暗がり',    icon: '#', dur: 2.4 },
+  extra:  { name: 'しずく増量', icon: 'v', dur: 0 }
+};
+function hazardFor(n) {
+  if (n < 2) return null;
+  if (n === 2) return 'wind';
+  if (n === 3) return 'wobble';
+  if (n === 4) return 'extra';
+  if (n === 5) return 'fog';
+  const pool = ['wind', 'wobble', 'extra', 'fog'];
+  return pool[(n - 6) % pool.length];
+}
+
 function cupParams(n) {
   // 1杯あたり約3.4秒。テンポよく回る。
   const speed = BASE_SPEED * Math.pow(1.05, Math.min(n, 30));
@@ -294,7 +323,7 @@ function cupParams(n) {
   const ml = Math.min(95, Math.round(46 + n * 3.2));
   // しずくは 0〜2滴。難しくなるほど増える
   const drip = n < 2 ? 0 : n < 7 ? 1 : 2;
-  return { speed, tol, glass, ml, drip };
+  return { speed, tol, glass, ml, drip, haz: hazardFor(n) };
 }
 
 // ── 状態 ──
@@ -309,6 +338,7 @@ const st = {
   settleT: 0, lastDropT: 0, dripLeft: 0, settleArmed: false, settleWait: 0,
   camZ: 1, camTargetZ: 0, camFocus: null, camTargetF: null,
   lastParams: null,
+  haz: null, hazActive: [], wind: 0, wobble: 0, fog: 0, hazTimers: [],
   best: 0, bestCombo: 0
 };
 
@@ -367,6 +397,11 @@ function glassGeom() {
   };
   return { cx, top, bot, h, w, rimR, botR: w * 0.78, surfY, radAt, p };
 }
+// 目標線の横ずれ（妨害「揺れる線」）
+function lineShift() {
+  return st.wobble * 13 * Math.sin(st.t * 4.6);
+}
+
 // 目標線の y
 function lineY(geom) {
   const innerH = geom.h - 14;
@@ -601,15 +636,17 @@ function drawGlass() {
   // 目標線（コップの内側に、輪で描く）
   const ly = lineY(G);
   const lr = G.radAt(ly);
+  // 「揺れる線」: 輪だけを横にずらす（判定は動かさない＝見た目だけ）
+  const lx = cx + lineShift();
   ctx.save();
-  ctx.beginPath(); ctx.ellipse(cx, ly, lr, G.rimR * 0.92, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255,214,150,0.95)';
+  ctx.beginPath(); ctx.ellipse(lx, ly, lr, G.rimR * 0.92, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = st.wobble > 0.05 ? 'rgba(255,150,120,0.95)' : 'rgba(255,214,150,0.95)';
   ctx.lineWidth = 2.2; ctx.setLineDash([7, 5]); ctx.stroke();
   ctx.setLineDash([]);
   // 線の目印（右端の小さな山）
-  ctx.fillStyle = 'rgba(255,214,150,0.95)';
+  ctx.fillStyle = st.wobble > 0.05 ? 'rgba(255,150,120,0.95)' : 'rgba(255,214,150,0.95)';
   ctx.beginPath();
-  ctx.moveTo(cx + lr - 1, ly - 5); ctx.lineTo(cx + lr + 8, ly); ctx.lineTo(cx + lr - 1, ly + 5);
+  ctx.moveTo(lx + lr - 1, ly - 5); ctx.lineTo(lx + lr + 8, ly); ctx.lineTo(lx + lr - 1, ly + 5);
   ctx.closePath(); ctx.fill();
   // 線の上に、うっすら光の帯を敷く（「ここまで」が一目で分かる）
   ctx.globalCompositeOperation = 'lighter';
@@ -618,7 +655,7 @@ function drawGlass() {
   aura.addColorStop(0.5, 'rgba(255,206,140,0.13)');
   aura.addColorStop(1, 'rgba(255,206,140,0)');
   ctx.fillStyle = aura;
-  ctx.beginPath(); ctx.ellipse(cx, ly, lr, 20, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(lx, ly, lr, 20, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 
   // ガラス
@@ -961,6 +998,86 @@ function drawRipples() {
 }
 
 // ── ゲーム進行 ──
+// ══════════════════════════════════════════════════════════
+//  妨害エンジン（2D）
+// ══════════════════════════════════════════════════════════
+function hazLater(fn, ms) { st.hazTimers.push(setTimeout(fn, ms)); }
+function clearHazards() {
+  st.hazTimers.forEach(clearTimeout); st.hazTimers.length = 0;
+  st.hazActive = [];
+  st.wind = 0; st.wobble = 0; st.fog = 0;
+  const b = $('hazBadge');
+  if (b) b.classList.remove('on');
+  const d = $('darkness');
+  if (d) d.classList.remove('on');
+}
+
+function startHazard(key) {
+  if (st.phase !== 'pouring' && st.phase !== 'ready') return;
+  if (st.hazActive.some(h => h.key === key)) return;
+  const H = HAZARDS[key];
+  if (!H) return;
+  st.hazActive.push({ key, t: 0, dur: H.dur });
+  const b = $('hazBadge');
+  if (b) { b.textContent = `${H.icon} ${H.name}`; b.classList.add('on'); }
+  tone(190, 0.16, 0.10, 'sawtooth', -70);
+  if (key === 'fog') { const d = $('darkness'); if (d) d.classList.add('on'); }
+  if (key === 'extra') {
+    P().drip += 2;
+    toast('しずくが増えた。手前で離せ。');
+    hazLater(() => { if (b) b.classList.remove('on'); removeHazard(key); }, 1200);
+    hazLater(() => { if (P().drip > 2) P().drip -= 2; }, 6000);
+  }
+}
+function removeHazard(key) {
+  st.hazActive = st.hazActive.filter(h => h.key !== key);
+  if (key === 'fog') {
+    const d = $('darkness'); if (d) d.classList.remove('on');
+  }
+  if (!st.hazActive.length) { const b = $('hazBadge'); if (b) b.classList.remove('on'); }
+}
+function updateHazards(dt) {
+  for (let i = st.hazActive.length - 1; i >= 0; i--) {
+    const h = st.hazActive[i];
+    h.t += dt;
+    if (h.dur > 0 && h.t >= h.dur) { removeHazard(h.key); continue; }
+    const k = Math.min(1, h.t / 0.25);
+    if (h.key === 'wind') st.wind = k * (0.80 + 0.20 * Math.sin(h.t * 6.0));
+    else if (h.key === 'wobble') st.wobble = k * (0.7 + 0.3 * Math.sin(h.t * 4.2));
+    else if (h.key === 'fog') st.fog = k;
+  }
+  if (!st.hazActive.some(h => h.key === 'wind')) st.wind *= Math.exp(-dt * 6);
+  if (!st.hazActive.some(h => h.key === 'wobble')) st.wobble *= Math.exp(-dt * 6);
+  if (!st.hazActive.some(h => h.key === 'fog')) st.fog *= Math.exp(-dt * 6);
+}
+
+function scheduleHazards() {
+  clearHazards();
+  const hz = P().haz;
+  if (!hz) return;
+  const est = (P().ml / P().speed) * 1000;
+  const at = est * 0.48;
+  hazLater(() => {
+    if (st.phase !== 'pouring' && st.phase !== 'ready') return;
+    const H = HAZARDS[hz];
+    const b = $('hazBadge');
+    if (b) { b.textContent = `まもなく ${H.icon} ${H.name}`; b.classList.add('on'); }
+    tone(640, 0.07, 0.10, 'triangle', 40);
+    hazLater(() => { if (!st.hazActive.length && b) b.classList.remove('on'); }, 800);
+  }, Math.max(0, at - 850));
+  hazLater(() => startHazard(hz), at);
+}
+
+// 妨害をかわして1杯とれたときの加点
+function hazardBonus() {
+  if (st.hazActive.length) {
+    const add = 60 * st.hazActive.length * Math.max(1, st.combo);
+    st.score += add;
+    showGain('+' + add + ' 妨害回避');
+    tone(1980, 0.10, 0.11, 'triangle', 200);
+  }
+}
+
 function newCup(idx) {
   st.cup = idx;
   st.lastParams = cupParams(idx);
@@ -971,6 +1088,7 @@ function newCup(idx) {
   st.shake = 0; st.tilt = 0.02; st.targetTilt = 0.02; st.streamW = 0;
   st.camZ = 1; st.camTargetZ = 0; st.camFocus = null; st.camTargetF = null;
   st.settleT = 0; st.dripLeft = 0; st.settleArmed = false; st.settleWait = 0;
+  clearHazards();
   JUG.level = JUG.water;
   $('gauge').classList.remove('hide');
   $('ctl').classList.remove('hide');
@@ -997,6 +1115,7 @@ function startPour() {
   audioInit(); streamStart();
   $('pourBtn').classList.add('on');
   $('hint').classList.remove('on');
+  scheduleHazards();
 }
 
 function endPour() {
@@ -1007,6 +1126,7 @@ function endPour() {
   // 離した瞬間には終わらない。ここから「しずく」の時間。
   st.phase = 'settle';
   st.settleT = 0;
+  clearHazards();
   st.dripLeft = P().drip;
   st.lastDropT = 0.10;
   st.settleArmed = false; st.settleWait = 0;
@@ -1031,6 +1151,9 @@ function judge(good, diff) {
   st.phase = 'result';
   const ad = Math.abs(diff);
   const perfect = ad <= 1.0;
+
+  // 妨害をかわしたボーナス（combo を掛ける前に足す）
+  hazardBonus();
 
   // 点: 基礎100 × 連続。完璧なら+50%
   st.combo += 1;
@@ -1154,6 +1277,7 @@ function showResult(diff, overflowed) {
 
 // ── 更新 ──
 function update(dt) {
+  updateHazards(dt);
   st.t += dt;
   st.shake *= Math.exp(-dt * 9);
   if (st.spilled > 0) st.spillT += dt;
@@ -1184,7 +1308,9 @@ function update(dt) {
 
   if (st.phase === 'pouring' || st.phase === 'settle') {
     if (st.phase === 'pouring' && st.pouring) {
-      st.ml += P().speed * dt;
+      // 風: 流速が脈打つ。一定のペースで注げなくなる。
+      const windMul = 1 + st.wind * 0.55 * Math.sin(st.t * 7.5);
+      st.ml += P().speed * windMul * dt;
       st.targetTilt = 1;
       if (Math.random() < dt * 14) {
         st.ripples.push({ dx: (Math.random() - 0.5) * 40, rad: 4, life: 0.55, max: 0.55 });
@@ -1193,7 +1319,8 @@ function update(dt) {
       if (st.ml >= MAX_ML) { st.ml = MAX_ML; lose(MAX_ML - P().ml); }
       // ピッチャーがカラになったら、それ以上は出ない
       // （注ぎ始めの一瞬は level がまだ満タンなので、必ず少し注いでから判定する）
-      else if (st.ml > 0.5 && JUG.level <= 0.015) {
+      else if (st.ml >= P().ml * 1.28) {
+        // 出しきったら自動で止める（出すぎ防止の保険）
         $('pourBtn').disabled = false; endPour();
       }
     } else if (st.phase === 'pouring') {
@@ -1210,13 +1337,11 @@ function update(dt) {
         st.ml += 0.9;
         tone(880 + Math.random() * 240, 0.07, 0.05, 'sine', -160);
         if (st.ml >= MAX_ML) { st.ml = MAX_ML; lose(MAX_ML - P().ml); }
-      // ピッチャーがカラになったら、それ以上は出ない
-      // （注ぎ始めの一瞬は level がまだ満タンなので、必ず少し注いでから判定する）
-      else if (st.ml > 0.5 && JUG.level <= 0.015) {
-        $('pourBtn').disabled = false; endPour();
       }
-      }
-      if (st.dripLeft <= 0 && !st.settleArmed) {
+    }
+    // しずくが落ちきったら採点へ（0滴でもここを通る）
+    if (st.phase === 'settle' && st.dripLeft <= 0) {
+      if (!st.settleArmed) {
         st.settleArmed = true; st.settleWait = 0;
         // 採点の直前に、水面へ寄る（結果が「見える」）
         const G = glassGeom();
@@ -1463,7 +1588,9 @@ function draw() {
 // ── ループ ──
 let last = 0, raf = 0;
 function loop(now) {
-  const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
+  // 上限は 0.25 秒。0.05 秒にすると、描画が重い端末でゲーム時間が
+  // 実時間より遅くなり、注ぐ量まで減ってしまう（＝遊べなくなる）。
+  const dt = Math.min(0.5, (now - last) / 1000 || 0.016);
   last = now;
   update(dt);
   draw();
@@ -1532,6 +1659,31 @@ function bind() {
   };
   watch();
   window.addEventListener('resize', resize);
+  // ── サイト共通バー（#g3bar）の高さを追う ──
+  // #g3bar はビルド時に body 末尾へ差し込まれるため、このスクリプトの実行時点では
+  // まだ DOM に無いことがある。MutationObserver で出現を待ち、高さが変わるたびに resize()。
+  (function watchG3Bar() {
+    let observed = false;
+    const measure = () => {
+      const bar = document.getElementById('g3bar');
+      if (!bar) return false;
+      const h = Math.round(bar.getBoundingClientRect().height);
+      const prev = parseInt(document.documentElement.style.getPropertyValue('--barH'), 10);
+      if (!Number.isFinite(prev) || prev !== h) resize();
+      if (!observed && window.ResizeObserver) {
+        observed = true;
+        try { new ResizeObserver(() => resize()).observe(bar); } catch (e) {}
+      }
+      return true;
+    };
+    if (!measure()) {
+      const mo = new MutationObserver(() => { if (measure()) mo.disconnect(); });
+      mo.observe(document.documentElement, { childList: true, subtree: true });
+      // 保険
+      window.addEventListener('load', measure);
+      setTimeout(() => { measure(); mo.disconnect(); }, 1500);
+    }
+  })();
   window.addEventListener('orientationchange', () => setTimeout(resize, 220));
   // タブから戻ったときに備えて
   document.addEventListener('visibilitychange', () => { last = performance.now(); });
@@ -1555,6 +1707,14 @@ bind();
 resize();
 last = performance.now();
 raf = requestAnimationFrame(loop);
+
+// 開発用フック（?debug のときだけ）
+if (location.search.includes('debug')) {
+  window.st = st;
+  window.P = P;
+  window.JUG = JUG;
+  window.MAX_ML = MAX_ML;
+}
 
 })();
 
