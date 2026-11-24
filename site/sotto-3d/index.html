@@ -1,0 +1,1343 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#061426">
+<title>そっと、ついで</title>
+<style>
+:root{
+  --ink:#eaf2f8; --sub:#9db4c6; --dim:#6b8496;
+  --cyan:#6fe3ff; --gold:#ffd166; --water:#8fd8ea;
+  --good:#57f2b0; --bad:#ff8f6b; --red:#ff6b57;
+  --line:#ffffff26;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#061426;color:var(--ink);
+  font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+  user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+#gl{position:fixed;left:0;top:0;width:100%;height:100%;display:block;touch-action:none}
+#hud{position:fixed;inset:0;pointer-events:none;z-index:2}
+#hud>*{pointer-events:auto}
+.hide{display:none!important}
+
+/* ── 上 ── */
+#topwrap{position:absolute;left:10px;right:10px;top:calc(9px + env(safe-area-inset-top));
+  display:flex;flex-direction:column;gap:7px}
+#top{display:flex;gap:8px;align-items:flex-start;justify-content:space-between}
+.panel{background:#061426dc;border:1px solid var(--line);border-radius:13px;backdrop-filter:blur(10px)}
+.iconbtn{width:40px;height:40px;border-radius:13px;border:1px solid var(--line);background:#061426dc;
+  color:var(--ink);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);padding:0}
+.iconbtn:active{transform:scale(.94)}
+.iconbtn svg{display:block}
+#btns{display:flex;gap:6px}
+
+#scoreBox{padding:6px 12px 7px;min-width:108px}
+.lbl{font-size:9.5px;letter-spacing:.2em;color:var(--dim);font-weight:700}
+#scoreVal{font-size:24px;font-weight:900;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+#combo{position:absolute;left:50%;top:calc(9px + env(safe-area-inset-top));transform:translateX(-50%);
+  text-align:center;pointer-events:none;transition:transform .12s}
+#combo .n{font-size:36px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;
+  color:var(--gold);letter-spacing:-.03em;text-shadow:0 4px 26px #ffc85770}
+#combo .n small{font-size:13px;margin-left:2px}
+#combo .lbl{margin-top:3px;color:#ffffff8c}
+#combo.hot .n{color:#fff;text-shadow:0 0 30px #6fe3ffcc}
+#combo.pop{transform:translateX(-50%) scale(1.18)}
+
+/* 3Dの高さメーター */
+#gauge{padding:7px 12px 8px;text-align:center}
+#gauge .row{display:flex;justify-content:space-between;align-items:baseline;
+  font-size:10.5px;color:var(--dim);letter-spacing:.08em}
+#gauge .row b{font-size:19px;font-weight:900;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.14}
+#gbar{position:relative;height:7px;border-radius:4px;background:#ffffff18;margin-top:5px;overflow:hidden}
+#gzone{position:absolute;top:0;bottom:0;background:#57f2b022;border-left:1px solid #57f2b088;
+  border-right:1px solid #57f2b088;transition:width .18s,left .18s}
+#gfill{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--gold);
+  border-radius:2px;box-shadow:0 0 9px currentColor;transition:none}
+
+/* ── 下 ── */
+#ctl{position:absolute;left:10px;right:10px;bottom:calc(10px + var(--barH,0px) + env(safe-area-inset-bottom))}
+#pourBtn{width:100%;height:72px;border-radius:21px;border:1px solid #ffffff2e;
+  background:linear-gradient(#15334d,#0e2337);color:var(--ink);font:900 20px/1 inherit;letter-spacing:.12em;
+  box-shadow:0 8px 0 #040a12a6,inset 0 1px 0 #ffffff20;
+  display:flex;align-items:center;justify-content:center;gap:11px;position:relative;overflow:hidden}
+#pourBtn:active,#pourBtn.on{transform:translateY(3px);box-shadow:0 4px 0 #040a12a6,inset 0 1px 0 #ffffff20;
+  background:linear-gradient(#1d4a6b,#123049)}
+#pourBtn.on{border-color:#6fe3ffaa}
+#pourBtn small{font-size:11px;font-weight:700;color:#8ba0b0}
+#pourBtn::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  box-shadow:inset 0 0 26px 0 #6fe3ff00;transition:box-shadow .12s}
+#pourBtn.on::after{box-shadow:inset 0 0 26px 0 #6fe3ff66}
+
+/* ── カード ── */
+.card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,500px);
+  background:#061426f2;border:1px solid var(--line);border-radius:22px;padding:22px 20px 18px;
+  text-align:center;box-shadow:0 26px 70px #000c,inset 0 1px 0 #ffffff12;backdrop-filter:blur(14px);
+  max-height:calc(100vh - 30px - var(--barH,0px));overflow:auto}
+.card h1{margin:0 0 7px;font-size:clamp(23px,6.6vw,32px);line-height:1.3}
+.card .sub{color:var(--sub);font-size:13.5px;line-height:1.75;margin:0 0 14px}
+.card ul{margin:0 0 15px;padding:0;list-style:none;text-align:left;font-size:12.5px;line-height:1.75;color:var(--sub)}
+.card ul li{position:relative;padding-left:19px;margin-bottom:4px}
+.card ul li:before{content:"";position:absolute;left:3px;top:.68em;width:6px;height:6px;border-radius:50%;
+  background:var(--water);opacity:.9}
+.card ul b{color:var(--ink)}
+.btn{width:100%;height:54px;border:0;border-radius:15px;font:900 16px/1 inherit;letter-spacing:.06em;
+  background:linear-gradient(#ffd98a,#ffc253);color:#1a1206;box-shadow:0 5px 0 #9c6a2e;margin-bottom:8px}
+.btn:active{transform:translateY(2px);box-shadow:0 3px 0 #9c6a2e}
+.btn.ghost{background:#ffffff12;color:var(--ink);box-shadow:none;border:1px solid var(--line);
+  height:48px;font-weight:800;font-size:14px}
+.btn:disabled{filter:grayscale(.7) brightness(.6);box-shadow:none;transform:none}
+
+/* タイトル */
+#titleCard{padding:26px 22px 18px}
+#titleCard .kicker{font-size:9.5px;letter-spacing:.42em;color:#8fa9bd;font-weight:700;margin-bottom:9px}
+#titleCard .rule{width:46px;height:1px;margin:0 auto 10px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+#titleCard h1{letter-spacing:.04em}
+#titleCard::before{content:"";position:absolute;left:0;right:0;top:0;height:130px;border-radius:22px 22px 0 0;
+  background:radial-gradient(120% 100% at 50% 0%,#6fe3ff26,transparent 70%);pointer-events:none}
+.hero{margin:0 0 13px;padding:12px 13px;border-radius:14px;background:#ffffff08;
+  border:1px solid #ffffff12;text-align:left;display:flex;flex-direction:column;gap:7px}
+.hero div{font-size:12.5px;color:var(--sub);line-height:1.7;display:flex;gap:8px;align-items:flex-start}
+.hero b{color:var(--gold);flex:0 0 auto;font-size:12px;line-height:1.7}
+.hero span b{color:var(--ink);font-size:12.5px}
+.bestline{display:flex;align-items:baseline;justify-content:center;gap:6px;font-size:11px;
+  color:var(--dim);margin:0 0 15px;letter-spacing:.06em}
+.bestline b{font-size:16px;font-weight:900;color:var(--ink);font-variant-numeric:tabular-nums}
+.bestline .sep{color:#ffffff2e;margin:0 2px}
+
+/* 記録（ランキング） */
+.ranklist{margin:0 0 14px;text-align:left}
+.rankrow{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:10px;font-size:12.5px}
+.rankrow:nth-child(odd){background:#ffffff07}
+.rankrow .pos{width:22px;font-weight:900;color:var(--dim);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.rankrow .pos.g{color:var(--gold)}
+.rankrow .sc{flex:1 1 auto;font-weight:900;font-variant-numeric:tabular-nums}
+.rankrow .cb{color:var(--dim);font-size:11px;flex:0 0 auto}
+.rankrow .dt{color:#ffffff40;font-size:10px;flex:0 0 auto;font-variant-numeric:tabular-nums}
+.rankrow.me{background:#ffd1661f;border:1px solid #ffd1664d}
+.rankempty{color:var(--dim);font-size:12px;text-align:center;padding:12px 0}
+
+/* 結果 */
+#resultCard{top:auto!important;bottom:calc(10px + var(--barH,0px) + env(safe-area-inset-bottom));
+  transform:translateX(-50%)!important;padding:13px 16px 12px;width:min(93vw,480px);border-radius:20px}
+#resultCard .rhead{display:flex;align-items:baseline;gap:9px;justify-content:center;flex-wrap:wrap}
+#resultCard .mark{font-size:12.5px;font-weight:800;letter-spacing:.14em;color:var(--dim);margin:0}
+#resultCard .mark.good{color:var(--good)}
+#resultCard .mark.ng{color:var(--bad)}
+#resultCard .mark.perfect{color:var(--gold);text-shadow:0 0 18px #ffcf7a66}
+#resultCard .line2{margin:0;font-size:12.5px;color:var(--sub);line-height:1.65}
+#resultCard .num{font-size:42px;margin:2px 0 0;text-align:center;font-weight:900;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.12}
+#resultCard .num b{font-size:18px;font-weight:800;color:var(--sub);margin-left:5px}
+#resultCard .rfoot{display:flex;flex-direction:column;gap:9px;margin-top:9px}
+#resultCard #stats{display:flex;justify-content:center;gap:22px;margin:0}
+#stats div{text-align:center}
+#stats b{display:block;font-size:19px;font-weight:900;font-variant-numeric:tabular-nums}
+#stats span{font-size:10px;color:var(--dim);font-weight:700}
+#resultCard .rbtns{display:flex;gap:8px;margin:0;width:100%}
+#resultCard .rbtns .btn{width:auto;margin:0;height:47px;flex:1 1 auto;white-space:nowrap;min-width:0;
+  font-size:14.5px;padding:0 8px;letter-spacing:.03em}
+#resultCard .rbtns .btn.ghost{flex:0 0 auto;width:auto;padding:0 15px;font-size:13px}
+
+/* 演出 */
+#gain{position:absolute;left:50%;bottom:calc(150px + var(--barH,0px) + env(safe-area-inset-bottom));
+  transform:translateX(-50%);font-size:27px;font-weight:900;color:var(--gold);
+  text-shadow:0 4px 26px #ffbb5566;opacity:0;pointer-events:none;font-variant-numeric:tabular-nums}
+#gain.go{animation:gainUp .95s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes gainUp{
+  0%{opacity:0;transform:translateX(-50%) translateY(16px) scale(.8)}
+  22%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.14)}
+  60%{opacity:1;transform:translateX(-50%) translateY(-26px) scale(1)}
+  100%{opacity:0;transform:translateX(-50%) translateY(-58px) scale(.94)}
+}
+#toast{position:absolute;left:50%;bottom:calc(152px + var(--barH,0px) + env(safe-area-inset-bottom));
+  transform:translateX(-50%) translateY(6px);background:#061426ee;border:1px solid var(--line);
+  border-radius:12px;padding:8px 14px;font-size:12.5px;color:var(--sub);opacity:0;
+  transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;max-width:92vw}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#hint{position:absolute;left:50%;bottom:calc(96px + var(--barH,0px) + env(safe-area-inset-bottom));
+  transform:translateX(-50%);font-size:12px;color:#8fa9bd;white-space:nowrap;opacity:0;
+  transition:opacity .3s;background:#061426cc;padding:5px 12px;border-radius:9px;backdrop-filter:blur(6px)}
+#hint.on{opacity:1}
+#edge{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .25s;z-index:1;
+  box-shadow:inset 0 0 70px 6px #ffd16655}
+#edge.on{opacity:1}
+#nogl{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:28px;
+  background:#061426;z-index:50;text-align:center;font-size:14px;line-height:1.9;color:var(--sub)}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="edge"></div>
+
+<div id="hud">
+  <div id="topwrap">
+    <div id="top">
+      <div id="scoreBox" class="panel">
+        <div class="lbl">SCORE</div>
+        <div id="scoreVal">0</div>
+      </div>
+      <div id="btns">
+        <button class="iconbtn" id="soundBtn" aria-label="音を消す">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3.5 9.5h3.4L11.5 5.6v12.8L6.9 14.5H3.5z"/>
+            <path class="snd-wave" d="M15 9.2a4 4 0 0 1 0 5.6"/>
+            <path class="snd-wave" d="M17.8 6.6a7.6 7.6 0 0 1 0 10.8"/>
+            <path class="snd-x" d="M16 9.6l5.2 4.8M21.2 9.6L16 14.4" style="display:none"/>
+          </svg>
+        </button>
+        <button class="iconbtn" id="rankBtn" aria-label="記録">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5.5a2.5 2.5 0 0 0 2.5 5"/><path d="M16 6h2.5a2.5 2.5 0 0 1-2.5 5"/>
+            <path d="M12 13v3M9 19h6"/>
+          </svg>
+        </button>
+        <button class="iconbtn" id="menuBtn" aria-label="遊び方">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M4 7.2h16M4 12h16M4 16.8h16"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div id="gauge" class="panel hide">
+      <div class="row"><span id="gLeft">あと</span><b id="nowMl">0<small style="font-size:10px">ml</small></b></div>
+      <div id="gbar"><div id="gzone"></div><div id="gfill"></div></div>
+    </div>
+  </div>
+
+  <div id="combo" class="hide"><div class="n" id="comboN">0<small>杯</small></div><div class="lbl">CONTINUE</div></div>
+
+  <div id="ctl" class="hide">
+    <button id="pourBtn">注ぐ <small>長押し</small></button>
+  </div>
+
+  <div id="gain"></div>
+  <div id="hint">ボタンを押しているあいだ、注がれます</div>
+  <div id="toast"></div>
+
+  <section id="titleCard" class="card">
+    <div class="kicker">一杯ずつ、ていねいに</div>
+    <h1>そっと、ついで</h1>
+    <div class="rule"></div>
+    <p class="sub">指を離しても、しずくは止まらない。</p>
+    <div class="hero">
+      <div><b>①</b><span>水色の線で<b>ぴったり止める</b>。<b>離したあとに数滴落ちる</b>ので、少し手前で。</span></div>
+      <div><b>②</b><span>ぴったりなら、すぐ次のコップ。<b>続けるほど点が増える。</b></span></div>
+      <div><b>③</b><span>だんだん速く、細くなる。<b>しくじると、そこで終わり。</b></span></div>
+    </div>
+    <div class="bestline">
+      <span>ベスト</span><b id="titleBest">0</b><span>点</span>
+      <span class="sep">·</span>
+      <span>最長</span><b id="titleCombo">0</b><span>杯</span>
+    </div>
+    <button class="btn" id="playBtn">はじめる</button>
+    <button class="btn ghost" id="rankBtn2">きろくを見る</button>
+  </section>
+
+  <section id="resultCard" class="card hide">
+    <div class="rhead">
+      <p class="mark" id="resultMark">ぴったり</p>
+      <p class="line2" id="resultLine"></p>
+    </div>
+    <p class="num"><span id="resultDiff">0</span><b id="resultUnit">ml ズレ</b></p>
+    <div class="rfoot">
+      <div id="stats">
+        <div><b id="statCombo">0</b><span>連続</span></div>
+        <div><b id="statScore">0</b><span>スコア</span></div>
+        <div><b id="statBest">0</b><span>ベスト</span></div>
+      </div>
+      <div class="rbtns">
+        <button class="btn" id="retryBtn">もう一度</button>
+        <button class="btn ghost" id="shareBtn">シェア</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="rankCard" class="card hide">
+    <div class="kicker">きろく</div>
+    <h1 style="font-size:21px">この端末のランキング</h1>
+    <p class="sub" style="font-size:12px">スコアはこの端末に保存されます。シェアで自慢できます。</p>
+    <div class="ranklist" id="rankList"></div>
+    <button class="btn" id="closeRank">とじる</button>
+    <button class="btn ghost" id="clearRank" style="height:40px;font-size:12px">記録を消す</button>
+  </section>
+
+  <section id="menuCard" class="card hide">
+    <div class="kicker">あそびかた</div>
+    <h1 style="font-size:20px">くわしい遊び方</h1>
+    <ul>
+      <li><b>「注ぐ」を押しているあいだ</b>、ピッチャーが傾いて水が出ます。離すと止まります。</li>
+      <li><b>離しても、しずくが数滴落ちます。</b>だから目標の1〜2ml手前で離すのがコツ。</li>
+      <li>しずくが落ちきってから採点。<b>±1ml以内で「完璧」</b>ボーナス。</li>
+      <li>ぴったりなら次のコップがすぐ来ます。<b>続けるほど1杯あたりの点が増えます。</b></li>
+      <li>ひとつでもしくじると、そこで終わり。記録はこの端末に残ります。</li>
+      <li>水色の帯が、いま許される幅です。<b>だんだん狭くなります。</b></li>
+    </ul>
+    <button class="btn" id="closeMenu">とじる</button>
+  </section>
+</div>
+
+<div id="nogl">
+  この端末では3D（WebGL）が使えないため、遊べません。<br>
+  ブラウザを最新にすると遊べることがあります。
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+
+// ══════════════════════════════════════════════════════════
+//  そっと、ついで — 3D
+//  設計: 「注ぐ」を押す＝ピッチャーが傾く。離す＝戻る。
+//        水面の高さが目標線に合った瞬間が採点。
+//  絵: 図面（blueprint）調。辺は画面内で一定の太さ、面は法線で陰影。
+//      ＝N.K. Works の手法を参考に、題材・操作・配色は独自。
+// ══════════════════════════════════════════════════════════
+
+// ── 難易度 ──
+const MAX_ML = 300;
+const BASE_SPEED = 15;
+const BASE_TOL = 3.2;
+function cupParams(n) {
+  const speed = BASE_SPEED * Math.pow(1.05, Math.min(n, 30));
+  const tol = Math.max(1.5, BASE_TOL * Math.pow(0.99, n));
+  const glass = Math.max(0.74, 1.0 - n * 0.010);
+  const ml = Math.min(95, Math.round(44 + n * 3.0));
+  const drip = n < 2 ? 0 : n < 7 ? 1 : 2;
+  return { speed, tol, glass, ml, drip };
+}
+
+// ── 保存 ──
+const SAVE_KEY = 'sotto3d.v1';
+function loadSave() {
+  try {
+    const j = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}');
+    return {
+      best: j.best | 0,
+      bestCombo: j.bestCombo | 0,
+      runs: Array.isArray(j.runs) ? j.runs.slice(0, 8) : []
+    };
+  } catch (e) { return { best: 0, bestCombo: 0, runs: [] }; }
+}
+function writeSave(sv) {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(sv)); } catch (e) { /* noop */ }
+}
+
+// ══════════════════════════════════════════════════════════
+//  three.js 初期化
+// ══════════════════════════════════════════════════════════
+const canvas = document.getElementById('gl');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
+} catch (e) {
+  document.getElementById('nogl').style.display = 'flex';
+  throw e;
+}
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.NoToneMapping;
+
+const scene = new THREE.Scene();
+const BG = new THREE.Color('#061426');
+scene.background = BG;
+
+const camera = new THREE.PerspectiveCamera(24, 1, 0.1, 200);
+// やや見下ろし。机の上が主役。
+// 注視点（コップの少し上）から、斜め前上へ 5.6m。
+const CAM_LOOK = new THREE.Vector3(0, 0, 0);
+const CAM_BASE = new THREE.Vector3(0, 3, 8);
+const CAM_DIR = new THREE.Vector3(0.16, 0.36, 1).normalize();   // 斜め前上から見る
+const CAM_MARGIN = 1.16;
+camera.position.copy(CAM_BASE);
+camera.lookAt(CAM_LOOK);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x1b3f60, 1.15));
+const dir = new THREE.DirectionalLight(0xffffff, 1.55);
+dir.position.set(3.2, 6.2, 4.4);
+scene.add(dir);
+const fill = new THREE.DirectionalLight(0x9fd8ff, 0.45);
+fill.position.set(-4, 2.2, -3);
+scene.add(fill);
+
+// ══════════════════════════════════════════════════════════
+//  図面マテリアル（辺を一定の太さで描く）
+// ══════════════════════════════════════════════════════════
+const uDpr = { value: Math.min(2, window.devicePixelRatio || 1) };
+function blueprintMat({ faceA = '#3f7fa8', faceB = '#1d4f74', edge = '#9fe6ff', width = 1.25,
+                        hatch = false, opacity = 1.0, side = THREE.FrontSide, additive = false } = {}) {
+  const A = new THREE.Color(faceA);
+  const B = new THREE.Color(faceB);
+  const E = new THREE.Color(edge);
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uA: { value: A }, uB: { value: B }, uE: { value: E },
+      uW: { value: width }, uDpr,
+      uHatch: { value: hatch ? 1 : 0 },
+      uGlow: { value: 0 },
+      uOpacity: { value: opacity }
+    },
+    transparent: opacity < 0.999,
+    depthWrite: opacity > 0.9,
+    side,
+    blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    vertexShader: `
+      varying vec3 vN; varying vec2 vUv; varying vec3 vP;
+      void main() {
+        vN = normalize(normalMatrix * normal);
+        vUv = uv;
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vP = wp.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform vec3 uA, uB, uE;
+      uniform float uW, uDpr, uHatch, uGlow, uOpacity;
+      varying vec3 vN; varying vec2 vUv; varying vec3 vP;
+      void main() {
+        // 面の陰影: 上を明るく、横を暗く。図面の「面の塗り分け」。
+        float shade = 0.80 + 0.22 * vN.y + 0.08 * max(vN.z, 0.0) - 0.10 * abs(vN.x);
+        vec3 base = mix(uB, uA, clamp(shade - 0.62, 0.0, 1.0) * 1.55);
+
+        // 稜線: 画面内で一定の太さ（fwidth で正規化）
+        float dx = min(vUv.x, 1.0 - vUv.x) / max(fwidth(vUv.x), 1e-5);
+        float dy = min(vUv.y, 1.0 - vUv.y) / max(fwidth(vUv.y), 1e-5);
+        float dd = min(dx, dy);
+        float w = uW * uDpr;
+        float line = 1.0 - smoothstep(w - 0.65, w + 0.65, dd);
+
+        // 上面の斜線ハッチ（図面らしさ）
+        float h = 0.0;
+        if (uHatch > 0.5 && vN.y > 0.55) {
+          float s = fract((vP.x - vP.z) * 9.0);
+          h = smoothstep(0.62, 0.95, s) * 0.16;
+        }
+
+        vec3 col = mix(base, uE, line * 0.92);
+        col += uE * h;
+        col += uE * uGlow * (0.28 + 0.5 * line);
+        // 透過: 稜線は不透明、面だけ薄く（＝ガラスの輪郭が立つ）
+        float a = mix(uOpacity, 1.0, line);
+        gl_FragColor = vec4(col, a);
+      }`
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  ピッチャー（回転体）── 傾けて注ぐための器
+// ══════════════════════════════════════════════════════════
+function makePitcher() {
+  // 断面（上半分の輪郭）: 底→胴→注ぎ口の付近まで
+  const pts = [
+    [0.00, 0.00], [0.34, 0.00], [0.40, 0.10], [0.46, 0.42],
+    [0.48, 0.74], [0.46, 0.96], [0.42, 1.06], [0.40, 1.10]
+  ].map(([r, y]) => new THREE.Vector2(r, y));
+  const geo = new THREE.LatheGeometry(pts, 40);
+  // 断面表示: 手前（+Z 側）を切り欠く。phi を回して切り欠きをカメラへ向ける。
+  geo.rotateY(-Math.PI / 4);
+  const mat = blueprintMat({ faceA: '#8fd4ef', faceB: '#2f6d92', edge: '#ffffff', width: 1.6,
+                             opacity: 0.22, side: THREE.DoubleSide });
+  const m = new THREE.Mesh(geo, mat);
+  const grp = new THREE.Group();
+  grp.add(m);
+
+  // 取っ手（トーラスの一部）
+  const handle = new THREE.Mesh(
+    new THREE.TorusGeometry(0.30, 0.055, 10, 26, Math.PI * 1.15),
+    blueprintMat({ faceA: '#7fcae8', faceB: '#2a6389', edge: '#ffffff', width: 1.5,
+                   opacity: 1.0, side: THREE.DoubleSide })
+  );
+  handle.rotation.z = -Math.PI * 0.62;
+  handle.position.set(0.40, 0.76, 0);
+  grp.add(handle);
+
+  // 注ぎ口（上の楕円を少し伸ばした板）
+  const spoutGeo = new THREE.CylinderGeometry(0.42, 0.40, 0.10, 30, 1, true, -0.75, 1.5);
+  const spout = new THREE.Mesh(spoutGeo, blueprintMat({ faceA: '#9adcf3', faceB: '#3a7c9e', edge: '#ffffff', width: 1.5,
+                                                       opacity: 1.0, side: THREE.DoubleSide }));
+  spout.position.y = 1.05;
+  spout.rotation.x = 0.06;
+  grp.add(spout);
+
+  // 全体をまとめて縮小（中の水も一緒に縮む）
+  grp.scale.setScalar(0.52);
+  return grp;
+}
+
+// 中の水（傾いても水面は水平）
+function makePitcherWater() {
+  const geo = new THREE.CylinderGeometry(0.28, 0.25, 1, 28, 1, false);
+  geo.translate(0, 0.5, 0);   // 底を原点に（scale.y で水位を下げる）
+  const mat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color('#3fc4ea'), side: THREE.DoubleSide
+  });
+  const m = new THREE.Mesh(geo, mat);
+  m.renderOrder = -2;         // 器の内側に置く
+  return m;
+}
+
+// ══════════════════════════════════════════════════════════
+//  コップ（回転体・上面ひらき）
+// ══════════════════════════════════════════════════════════
+function makeGlass(w, h) {
+  const g = new THREE.Group();
+  const mat = blueprintMat({
+    faceA: '#8fd4ef', faceB: '#3d7ea3', edge: '#ffffff', width: 1.9,
+    opacity: 0.16, side: THREE.DoubleSide
+  });
+  // 側面: 手前を切り欠いた半円筒（断面図）
+  //   theta=0 が +Z（カメラ側）なので、PI/2 から PI ぶん＝奥半分だけ描く。
+  const side = new THREE.Mesh(
+    new THREE.CylinderGeometry(w, w * 0.945, h, 56, 1, true, Math.PI / 2, Math.PI), mat);
+  side.position.y = h / 2;
+  g.add(side);
+  // 断面の「切り口」＝断面図のハッチ面（薄い水色の板）
+  const cutMat = blueprintMat({ faceA: '#cfeefb', faceB: '#a8d8ee', edge: '#ffffff',
+                                width: 1.1, opacity: 0.20, side: THREE.DoubleSide });
+  for (const sx of [-1, 1]) {
+    const cut = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.98, h), cutMat);
+    cut.rotation.y = Math.PI / 2;
+    cut.position.set(0, h / 2, 0);
+    cut.visible = false;   // 断面の板は使わず、切り口の線だけ残す
+  }
+  // 断面の輪郭線（左右の垂直線）は稜線シェーダが描くので追加不要
+  // 底（内側から見える）
+  const bottom = new THREE.Mesh(
+    new THREE.CircleGeometry(w * 0.945, 56),
+    blueprintMat({ faceA: '#a8e0f5', faceB: '#4a86a8', edge: '#ffffff', width: 1.2,
+                   opacity: 0.22, side: THREE.DoubleSide }));
+  bottom.rotation.x = -Math.PI / 2;
+  bottom.position.y = 0.004;
+  g.add(bottom);
+  // リム（口の輪。ここが一番明るい）
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(w, 0.014, 8, 64),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color('#eafcff') }));
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = h;
+  g.add(rim);
+  // 底の輪
+  const foot = new THREE.Mesh(
+    new THREE.TorusGeometry(w * 0.945, 0.010, 6, 56),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color('#9fdcf5') }));
+  foot.rotation.x = Math.PI / 2;
+  foot.position.y = 0.006;
+  g.add(foot);
+  return g;
+}
+
+// コップの水（高さが st.ml に比例）
+function makeCupWater(w) {
+  const g = new THREE.Group();
+  // 水の柱（壁の内側。上から覗くと水面が見える）
+  const geo = new THREE.CylinderGeometry(w * 0.93, w * 0.845, 1, 56, 1, true, Math.PI / 2, Math.PI);
+  geo.translate(0, 0.5, 0);
+  const body = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color: new THREE.Color('#1a9cc6'), side: THREE.DoubleSide
+  }));
+  body.renderOrder = -2;
+  g.add(body);
+  // 水面（明るい円盤＋輪）。ここが「いま何mlか」の読み取り点。
+  // 水面: 切り欠いた半円（断面図なので前面は開いている）
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(w * 0.93, 56, Math.PI / 2, Math.PI),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color('#6fe3ff'), side: THREE.DoubleSide }));
+  disc.rotation.x = -Math.PI / 2;
+  disc.rotation.z = Math.PI / 2;
+  disc.position.y = 1;
+  disc.renderOrder = -2;
+  g.add(disc);
+  // 断面の板（切り口に見える水の断面）
+  const sect = new THREE.Mesh(
+    new THREE.PlaneGeometry(w * 1.86, 1),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color('#38bde2'), side: THREE.DoubleSide }));
+  sect.position.set(0, 0.5, 0);
+  sect.renderOrder = -2;
+  g.add(sect);
+  g.userData.sect = sect;
+  const edge = new THREE.Mesh(
+    new THREE.TorusGeometry(w * 0.93, 0.008, 6, 40, Math.PI),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color('#eafcff') }));
+  edge.rotation.x = Math.PI / 2;
+  edge.rotation.z = Math.PI / 2;
+  edge.position.y = 1;
+  edge.renderOrder = -1;
+  g.add(edge);
+  g.userData.body = body;
+  g.userData.disc = disc;
+  g.userData.edge = edge;
+  return g;
+}
+
+// 目標線（コップ内側のリング）
+function makeTargetRing(w) {
+  const geo = new THREE.TorusGeometry(w * 0.90, 0.010, 6, 60);
+  geo.rotateX(Math.PI / 2);
+  return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd166') }));
+}
+
+// ══════════════════════════════════════════════════════════
+//  机・部屋
+// ══════════════════════════════════════════════════════════
+const desk = new THREE.Mesh(
+  new THREE.BoxGeometry(7.0, 0.10, 5.0),
+  blueprintMat({ faceA: '#2a6288', faceB: '#0f3350', edge: '#7fd6f5', width: 1.1, hatch: true })
+);
+desk.position.y = -0.05;
+scene.add(desk);
+
+// 机の上の「図面のグリッド」
+const grid = new THREE.GridHelper(6.6, 22, 0x6fe3ff, 0x2a6f96);
+grid.position.y = 0.002;
+grid.material.transparent = true;
+grid.material.opacity = 0.16;
+scene.add(grid);
+
+// 背景の奥の壁（奥行きを作る）
+const wall = new THREE.Mesh(
+  new THREE.PlaneGeometry(14, 9),
+  blueprintMat({ faceA: '#0e3556', faceB: '#0a2740', edge: '#2f7291', width: 0.9 })
+);
+wall.position.set(0, 2.6, -2.6);
+scene.add(wall);
+
+// ── カメラを「作品に合わせて」決める（勘で置かない）──
+function fitCamera() {
+  // 実際の箱で測る（手で「半幅0.72」などと決めない）
+  const box = new THREE.Box3();
+  if (glass) box.expandByObject(glass);
+  if (pitcher) box.expandByObject(pitcher);
+  if (box.isEmpty()) return;
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const vFov = camera.fov * Math.PI / 180;
+  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+  // 縦横それぞれに必要な距離を取り、大きい方に合わせる
+  const dH = (size.y / 2) / Math.tan(vFov / 2);
+  const dW = (size.x / 2) / Math.tan(hFov / 2);
+  const d = Math.max(dH, dW) * CAM_MARGIN + size.z * 0.5;
+  CAM_LOOK.copy(center);
+  CAM_BASE.copy(center).addScaledVector(CAM_DIR, d);
+}
+
+// ══════════════════════════════════════════════════════════
+//  ゲーム状態
+// ══════════════════════════════════════════════════════════
+const st = {
+  phase: 'title',      // title | ready | pouring | settle | over
+  ml: 0, pouring: false, t: 0,
+  cup: 0, combo: 0, score: 0,
+  tilt: 0, tiltTarget: 0,
+  dripLeft: 0, dropT: 0, settleT: 0, settleArmed: false, settleWait: 0,
+  shake: 0, camZ: 1, camF: new THREE.Vector2(0, 0.7),
+  camTargetZ: 1, camTargetF: new THREE.Vector2(0, 0.7),
+  splash: [], ripples: [], spillT: 0, spilled: 0,
+  params: cupParams(0)
+};
+let save = loadSave();
+
+// シーン上の実体
+const PITCHER_Y = 1.30, PITCHER_X = -0.26, PITCHER_Z = -0.02;
+const pitcher = makePitcher();
+pitcher.position.set(PITCHER_X, PITCHER_Y, PITCHER_Z);
+// らせん（＋Y軸）で回して、注ぎ口をコップ側へ向ける
+pitcher.rotation.y = -0.85;
+scene.add(pitcher);
+const pitcherWater = makePitcherWater();
+pitcher.add(pitcherWater);
+pitcherWater.scale.y = 0.90;
+pitcherWater.position.y = 0.05;
+
+let glass = null, cupWater = null, ring = null;
+let GLASS_W = 0.72, GLASS_H = 0.95;
+
+function rebuildCup(glassScale) {
+  if (glass) scene.remove(glass);
+  if (cupWater) scene.remove(cupWater);
+  if (ring) scene.remove(ring);
+  GLASS_W = 0.40 * glassScale;
+  GLASS_H = 0.95;
+  glass = makeGlass(GLASS_W, GLASS_H);
+  glass.position.set(0.30, 0, 0.02);
+  scene.add(glass);
+  cupWater = makeCupWater(GLASS_W);
+  cupWater.position.set(glass.position.x, 0.035, glass.position.z);
+  scene.add(cupWater);
+  ring = makeTargetRing(GLASS_W);
+  ring.position.set(glass.position.x, 0, glass.position.z);
+  scene.add(ring);
+}
+rebuildCup(cupParams(0).glass);
+
+// 水面の高さ（ml → world y）
+function waterY() {
+  const inner = GLASS_H - 0.06;
+  return 0.035 + inner * (st.ml / MAX_ML);
+}
+function targetY() {
+  const inner = GLASS_H - 0.06;
+  return 0.035 + inner * (st.params.ml / MAX_ML);
+}
+
+// ピッチャーの注ぎ口のワールド座標（水流の始点）
+// 注ぎ口の縁（ローカル +Z 側）。grp.scale=0.52 を掛けた値。
+const spoutLocal = new THREE.Vector3(0, 1.04 * 0.52, 0.44 * 0.52);
+const spoutWorld = new THREE.Vector3();
+function spoutPos() {
+  pitcher.updateMatrixWorld();
+  spoutWorld.copy(spoutLocal).applyMatrix4(pitcher.matrixWorld);
+  return spoutWorld;
+}
+
+// 水流: 細い「角柱（Box）」で描く。
+// 板や細い円柱は環境によって描画が不安定だったので、
+// 実績のある Box ジオメトリを不透明で使う。
+function makeStreamBar(color, opacity, additive) {
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color(color),
+      transparent: opacity < 1, opacity,
+      depthWrite: false,
+      blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending
+    })
+  );
+  m.frustumCulled = false;
+  m.visible = false;
+  m.renderOrder = 20;
+  return m;
+}
+// 外殻（淡い水色の半透明）＋芯（白）で「水」に見せる
+const streamGlow = makeStreamBar('#8fe6ff', 0.42, false);
+streamGlow.name = 'STREAM_GLOW';
+streamGlow.renderOrder = 19;
+const stream = makeStreamBar('#ffffff', 0.95, false);
+stream.name = 'STREAM';
+scene.add(stream); scene.add(streamGlow);
+
+const _mid = new THREE.Vector3(), _d = new THREE.Vector3();
+const _yAxis = new THREE.Vector3(0, 1, 0);
+function orientStream(mesh, a, b, radius) {
+  _d.copy(b).sub(a);
+  const len = _d.length();
+  if (len < 1e-4) { mesh.visible = false; return; }
+  mesh.position.copy(a).add(b).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(_yAxis, _d.normalize());
+  mesh.scale.set(radius, len, radius);
+  mesh.visible = true;
+}
+
+// しずく（落ちる球）
+const dropGeo = new THREE.SphereGeometry(0.028, 10, 8);
+const dropMat = new THREE.MeshBasicMaterial({ color: new THREE.Color('#eafcff') });
+const drops = [];
+function addDrop() {
+  const m = new THREE.Mesh(dropGeo, dropMat);
+  const s = spoutPos();
+  m.position.copy(s);
+  scene.add(m);
+  drops.push({ m, vy: 0, life: 1.4 });
+}
+
+// 波紋（水面の輪）
+const rippleGeo = new THREE.TorusGeometry(1, 0.008, 5, 28);
+rippleGeo.rotateX(Math.PI / 2);
+const ripples = [];
+
+
+// ══════════════════════════════════════════════════════════
+//  音（ファイルなし・Web Audio 合成）
+// ══════════════════════════════════════════════════════════
+const AC = { ctx: null, master: null, muted: false, noise: null };
+function audioInit() {
+  if (AC.ctx) { if (AC.ctx.state === 'suspended') AC.ctx.resume(); return; }
+  const C = window.AudioContext || window.webkitAudioContext;
+  if (!C) return;
+  try {
+    AC.ctx = new C();
+    AC.master = AC.ctx.createGain();
+    AC.master.gain.value = AC.muted ? 0 : 0.5;
+    AC.master.connect(AC.ctx.destination);
+    const len = AC.ctx.sampleRate * 1.0;
+    const buf = AC.ctx.createBuffer(1, len, AC.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    AC.noise = buf;
+  } catch (e) { AC.ctx = null; }
+}
+function tone(freq, dur, peak, type = 'sine', slide = 0) {
+  if (!AC.ctx || AC.muted) return;
+  const t = AC.ctx.currentTime;
+  const o = AC.ctx.createOscillator(), g = AC.ctx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(Math.max(30, freq), t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + Math.min(0.02, dur * 0.25));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(AC.master);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+const pour = { src: null, g: null, f: null };
+function pourStart() {
+  if (!AC.ctx || AC.muted || pour.src) return;
+  const t = AC.ctx.currentTime;
+  const s = AC.ctx.createBufferSource(); s.buffer = AC.noise; s.loop = true;
+  const f = AC.ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = 0.9;
+  const g = AC.ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.14, t + 0.10);
+  s.connect(f); f.connect(g); g.connect(AC.master);
+  s.start(t);
+  pour.src = s; pour.g = g; pour.f = f;
+}
+function pourStop() {
+  if (!pour.src) return;
+  const t = AC.ctx.currentTime;
+  try {
+    pour.g.gain.cancelScheduledValues(t);
+    pour.g.gain.setValueAtTime(pour.g.gain.value, t);
+    pour.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+    pour.src.stop(t + 0.16);
+  } catch (e) { /* noop */ }
+  pour.src = null; pour.g = null; pour.f = null;
+}
+
+// ══════════════════════════════════════════════════════════
+//  HUD
+// ══════════════════════════════════════════════════════════
+const $ = (id) => document.getElementById(id);
+function updateHud() {
+  $('scoreVal').textContent = st.score;
+  $('comboN').innerHTML = st.combo + '<small>杯</small>';
+  $('combo').classList.toggle('hot', st.combo >= 10);
+}
+function updateGauge() {
+  const p = st.params;
+  const d = st.ml - p.ml;
+  // メーターは ±20ml を表示。許容帯は tol に応じて広がる。
+  const zone = Math.min(96, (p.tol / 20) * 96);
+  $('gzone').style.left = (50 - zone / 2) + '%';
+  $('gzone').style.width = zone + '%';
+  const px = Math.max(-1, Math.min(1, d / 20));
+  $('gfill').style.left = (50 + px * 48) + '%';
+
+  $('gauge').dataset.ml = st.ml.toFixed(2);
+  $('gauge').dataset.target = p.ml;
+  $('gauge').dataset.tol = p.tol;
+  $('gauge').dataset.speed = p.speed;
+  $('gauge').dataset.phase = st.phase;
+
+  const near = Math.abs(d) <= p.tol;
+  if (near) $('gLeft').textContent = 'ぴったり';
+  else if (d < 0) $('gLeft').textContent = 'あと';
+  else $('gLeft').textContent = 'オーバー';
+  const show = d <= 0 ? -d : d;
+  $('nowMl').innerHTML = (d > 0 ? '+' : '') + show.toFixed(1) + '<small style="font-size:10px">ml</small>';
+  const col = near ? '#57f2b0' : (d > 0 ? '#ff8f6b' : '#ffd166');
+  $('gfill').style.background = col;
+  $('gfill').style.color = col;
+  $('nowMl').style.color = near ? '#57f2b0' : (d > 0 ? '#ff8f6b' : 'var(--ink)');
+}
+function showGain(txt) {
+  const el = $('gain');
+  el.textContent = txt;
+  el.classList.remove('go');
+  void el.offsetWidth;
+  el.classList.add('go');
+}
+let comboPopT = 0;
+function bumpCombo() {
+  const el = $('combo');
+  el.classList.add('pop');
+  clearTimeout(comboPopT);
+  comboPopT = setTimeout(() => el.classList.remove('pop'), 130);
+}
+let edgeT = 0;
+function pulseEdge() {
+  const el = $('edge');
+  el.classList.add('on');
+  clearTimeout(edgeT);
+  edgeT = setTimeout(() => el.classList.remove('on'), 240);
+}
+let toastT = 0;
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg; el.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('on'), 1700);
+}
+function hint(msg) {
+  const el = $('hint');
+  el.textContent = msg; el.classList.add('on');
+  setTimeout(() => el.classList.remove('on'), 2800);
+}
+
+// ══════════════════════════════════════════════════════════
+//  ゲーム進行
+// ══════════════════════════════════════════════════════════
+function newCup(idx) {
+  st.cup = idx;
+  st.params = cupParams(idx);
+  st.phase = 'ready';
+  st.ml = 0; st.pouring = false;
+  st.tilt = 0; st.tiltTarget = 0;
+  st.dripLeft = 0; st.settleT = 0; st.settleArmed = false; st.settleWait = 0;
+  st.spilled = 0; st.spillT = 0;
+  st.camTargetZ = 1; st.camTargetF.set(0, 0.7);
+  for (const d of drops) scene.remove(d.m);
+  drops.length = 0;
+  rebuildCup(st.params.glass);
+  $('gauge').classList.remove('hide');
+  $('ctl').classList.remove('hide');
+  updateHud(); updateGauge();
+}
+
+function startRun() {
+  audioInit();
+  st.score = 0; st.combo = 0;
+  $('titleCard').classList.add('hide');
+  $('resultCard').classList.add('hide');
+  $('rankCard').classList.add('hide');
+  $('combo').classList.remove('hide');
+  newCup(0);
+  toast('線ぴったりで離す。しずくの分、手前で。');
+  hint('ボタンを押しているあいだ、注がれます');
+}
+
+function startPour() {
+  if (st.phase !== 'ready' && st.phase !== 'pouring') return;
+  st.phase = 'pouring';
+  st.pouring = true;
+  st.tiltTarget = 1;
+  audioInit(); pourStart();
+  $('pourBtn').classList.add('on');
+  $('hint').classList.remove('on');
+}
+function endPour() {
+  if (st.phase !== 'pouring' || !st.pouring) return;
+  st.pouring = false;
+  st.tiltTarget = 0;
+  pourStop();
+  $('pourBtn').classList.remove('on');
+  st.phase = 'settle';
+  st.settleT = 0;
+  st.dripLeft = st.params.drip;
+  st.dropT = 0.10;
+  st.settleArmed = false; st.settleWait = 0;
+  if (st.dripLeft > 0) toast('…しずくが落ちています');
+}
+
+function finishSettle() {
+  if (st.phase !== 'settle') return;
+  const diff = st.ml - st.params.ml;
+  if (Math.abs(diff) <= st.params.tol) win(diff);
+  else lose(diff);
+}
+
+function win(diff) {
+  st.phase = 'over';      // 採点中は入力停止
+  $('pourBtn').disabled = true;
+  const perfect = Math.abs(diff) <= 1.0;
+  st.combo += 1;
+  const gain = (perfect ? 150 : 100) * st.combo;
+  st.score += gain;
+  if (st.score > save.best) save.best = st.score;
+  if (st.combo > save.bestCombo) save.bestCombo = st.combo;
+  writeSave(save);
+
+  if (perfect) {
+    tone(1320, 0.10, 0.16, 'triangle', 160);
+    setTimeout(() => tone(1760, 0.16, 0.13, 'triangle', 120), 70);
+    setTimeout(() => tone(2640, 0.22, 0.09, 'sine', 60), 140);
+  } else {
+    tone(880, 0.09, 0.13, 'triangle', 120);
+    setTimeout(() => tone(1180, 0.14, 0.10, 'triangle', 80), 60);
+  }
+  // 画面と音の手応え
+  st.shake = perfect ? 0.055 : 0.035;
+  if (perfect) { st.camTargetZ = 1.10; st.camTargetF.set(glass.position.x * 0.7, targetY() * 0.6 + 0.05); }
+  showGain('+' + gain);
+  bumpCombo();
+  if (st.combo >= 3) pulseEdge();
+  updateHud();
+
+  setTimeout(() => {
+    $('pourBtn').disabled = false;
+    st.phase = 'ready';
+    newCup(st.cup + 1);
+  }, perfect ? 520 : 400);
+}
+
+function lose(diff) {
+  st.phase = 'over';
+  $('pourBtn').disabled = true;
+  pourStop();
+  st.shake = 0.10;
+  st.spilled = 1; st.spillT = 0;
+  // はずした瞬間を、水面の近くで見せる
+  st.camTargetZ = 1.09; st.camTargetF.set(glass.position.x * 0.7, targetY() * 0.6 + 0.05);
+  tone(150, 0.42, 0.16, 'sine', -70);
+  setTimeout(() => tone(110, 0.5, 0.11, 'sine', -40), 100);
+  for (let i = 0; i < 10; i++) {
+    const m = new THREE.Mesh(dropGeo, dropMat);
+    m.position.set(glass.position.x + (Math.random() - 0.5) * GLASS_W * 2, GLASS_H, glass.position.z + (Math.random() - 0.5) * GLASS_W * 2);
+    scene.add(m);
+    drops.push({ m, vy: -1.2 - Math.random() * 2.2, life: 1.0, splash: true });
+  }
+  setTimeout(() => { showResult(diff); }, 720);
+}
+
+function showResult(diff) {
+  $('resultCard').classList.remove('hide');
+  $('combo').classList.add('hide');
+  $('pourBtn').disabled = false;
+  st.phase = 'result';
+  const mark = $('resultMark'), num = $('resultDiff'), line = $('resultLine');
+  num.textContent = (diff > 0 ? '+' : diff < 0 ? '−' : '±') + Math.abs(diff).toFixed(1);
+  if (diff > 0) {
+    mark.textContent = st.ml >= MAX_ML - 0.01 ? 'こぼれた' : '入れすぎ';
+    mark.className = 'mark ng';
+    line.textContent = st.ml >= MAX_ML - 0.01
+      ? 'コップからあふれてしまいました。'
+      : `${diff.toFixed(1)}ml 多かった。もっと手前で離すと、しずくでちょうどになります。`;
+    $('resultUnit').textContent = 'ml ズレ';
+  } else {
+    mark.textContent = 'たりない'; mark.className = 'mark ng';
+    line.textContent = `${(-diff).toFixed(1)}ml 足りませんでした。あと少しだけ長く押しましょう。`;
+    $('resultUnit').textContent = 'ml ズレ';
+  }
+  $('statCombo').textContent = st.combo;
+  $('statScore').textContent = st.score;
+  $('statBest').textContent = save.best;
+  $('titleBest').textContent = save.best;
+  $('titleCombo').textContent = save.bestCombo;
+
+  // 履歴（ランキング）に残す
+  if (st.score > 0) {
+    const d = new Date();
+    save.runs.push({
+      s: st.score, c: st.combo,
+      d: `${d.getMonth() + 1}/${d.getDate()}`
+    });
+    save.runs.sort((a, b) => b.s - a.s);
+    save.runs = save.runs.slice(0, 8);
+    writeSave(save);
+  }
+}
+
+// ── 記録画面 ──
+function renderRank() {
+  const list = $('rankList');
+  list.innerHTML = '';
+  if (!save.runs.length) {
+    list.innerHTML = '<div class="rankempty">まだ記録がありません。<br>1回遊ぶと、ここに残ります。</div>';
+    return;
+  }
+  save.runs.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'rankrow' + (i === 0 ? ' me' : '');
+    row.innerHTML = `<span class="pos${i === 0 ? ' g' : ''}">${i + 1}</span>` +
+      `<span class="sc">${r.s.toLocaleString()}</span>` +
+      `<span class="cb">${r.c}杯</span>` +
+      `<span class="dt">${r.d}</span>`;
+    list.appendChild(row);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  更新
+// ══════════════════════════════════════════════════════════
+function update(dt) {
+  st.t += dt;
+  st.shake *= Math.exp(-dt * 8);
+
+  // 傾き（ばね）
+  st.tilt += (st.tiltTarget - st.tilt) * (1 - Math.exp(-dt * 10));
+  // 傾き: まず Y でコップ側へ向け、そのあと Z で傾ける（合成順が大事）
+  pitcher.rotation.set(0, 0, 0);
+  pitcher.rotateY(Math.PI / 2);          // 注ぎ口(+Z) → +X（コップ側）
+  pitcher.rotateZ(-st.tilt * 0.80);      // 注ぎ口が下がる
+  pitcher.rotateX(st.tilt * 0.06);
+  pitcher.position.y = PITCHER_Y + st.tilt * 0.05;
+
+  // ピッチャー内の水: 1杯ぶんで空になる（注いだ量が目で分かる）
+  const fillR = 1 - Math.min(1, st.ml / MAX_ML);
+  const fullH = 0.90;
+  pitcherWater.scale.y = Math.max(0.045, fullH * fillR);
+  pitcherWater.position.y = 0.05;
+  // 残りが少ないと色が濃くなる（濃縮＝演出）
+  pitcherWater.material.color.setHSL(0.54, 0.72, 0.34 + 0.22 * fillR);
+
+  // 注ぐ
+  if (st.phase === 'pouring' && st.pouring) {
+    st.ml += st.params.speed * dt;
+    if (st.ml >= MAX_ML) { st.ml = MAX_ML; lose(MAX_ML - st.params.ml); }
+    updateGauge();
+  }
+  // しずく
+  if (st.phase === 'settle') {
+    // しずくが無い（drip=0）カップでも、すぐ判定に入る。
+    //   以前は drip>0 の中でしか arm していなかったため、
+    //   drip=0 のとき 4 秒待たされたまま判定されなかった。
+    if (st.dripLeft <= 0 && !st.settleArmed) {
+      st.settleArmed = true; st.settleWait = 0;
+      st.camTargetZ = 1.09; st.camTargetF.set(glass.position.x * 0.7, targetY() * 0.6 + 0.05);
+    }
+    if (st.dripLeft > 0) {
+      st.dropT += dt;
+      if (st.dropT > 0.32) {
+        st.dropT = 0; st.dripLeft--;
+        addDrop();
+        st.ml += 0.9;
+        tone(880 + Math.random() * 240, 0.07, 0.05, 'sine', -160);
+        if (st.ml >= MAX_ML) { st.ml = MAX_ML; lose(MAX_ML - st.params.ml); }
+      }
+      if (st.dripLeft <= 0 && !st.settleArmed) {
+        st.settleArmed = true; st.settleWait = 0;
+        st.camTargetZ = 1.09; st.camTargetF.set(glass.position.x * 0.7, targetY() * 0.6 + 0.05);
+      }
+    }
+    st.settleT += dt;
+    if (st.settleArmed) {
+      st.settleWait += dt;
+      if (st.settleWait > 0.48) finishSettle();
+    } else if (st.settleT > 4.0) finishSettle();
+    if (st.phase === 'settle') updateGauge();
+  }
+
+  // 水面の高さ
+  if (cupWater) {
+    const wy = waterY() - 0.035;
+    const vis = wy > 0.012 && st.ml > 0.4;
+    cupWater.visible = vis;
+    if (vis) {
+      cupWater.userData.body.scale.y = wy;
+      cupWater.userData.disc.position.y = wy;
+      cupWater.userData.edge.position.y = wy;
+      cupWater.userData.sect.scale.y = wy;
+      cupWater.userData.sect.position.y = wy / 2;
+    }
+  }
+  if (ring) {
+    ring.position.y = targetY();
+    const near = Math.abs(st.ml - st.params.ml) <= st.params.tol;
+    ring.material.color.set(near ? '#57f2b0' : '#ffd166');
+    ring.scale.setScalar(near ? 1.02 : 1.0);
+  }
+
+  // 水流
+  const wantStream = st.phase === 'pouring' && st.pouring && st.tilt > 0.35;
+  const sp = spoutPos();
+  const ty = waterY() + 0.02;
+  const target = new THREE.Vector3(glass.position.x, ty, glass.position.z);
+  if (wantStream) {
+    orientStream(stream, sp, target, 0.013);
+    orientStream(streamGlow, sp, target, 0.030);
+    // 着水の波紋
+    if (Math.random() < dt * 16) {
+      const r = new THREE.Mesh(rippleGeo, new THREE.MeshBasicMaterial({
+        color: new THREE.Color('#d8f8ff'), transparent: true, opacity: 0.5
+      }));
+      r.position.copy(target);
+      r.scale.setScalar(0.02);
+      scene.add(r);
+      ripples.push({ m: r, life: 0.5, max: 0.5 });
+    }
+  } else {
+    stream.visible = false; streamGlow.visible = false;
+  }
+
+  // しずく
+  for (const d of drops) {
+    d.vy -= 9.0 * dt;
+    d.m.position.y += d.vy * dt;
+    d.life -= dt;
+    if (d.m.position.y < waterY() + 0.03) {
+      d.life = 0;
+      const r = new THREE.Mesh(rippleGeo, new THREE.MeshBasicMaterial({
+        color: new THREE.Color('#e6fbff'), transparent: true, opacity: 0.65
+      }));
+      r.position.set(d.m.position.x, waterY() + 0.01, d.m.position.z);
+      r.scale.setScalar(0.02);
+      scene.add(r);
+      ripples.push({ m: r, life: 0.55, max: 0.55 });
+    }
+  }
+  for (let i = drops.length - 1; i >= 0; i--) {
+    if (drops[i].life <= 0) { scene.remove(drops[i].m); drops.splice(i, 1); }
+  }
+
+  // 波紋
+  for (const r of ripples) {
+    r.life -= dt;
+    const k = 1 - r.life / r.max;
+    r.m.scale.setScalar(0.02 + k * 0.30);
+    r.m.material.opacity = 0.6 * (1 - k);
+  }
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    if (ripples[i].life <= 0) { scene.remove(ripples[i].m); ripples.splice(i, 1); }
+  }
+
+  // カメラ（寄る／戻る）＋揺れ
+  const kc = 1 - Math.exp(-dt * 5.0);
+  st.camZ += (st.camTargetZ - st.camZ) * kc;
+  st.camF.x += (st.camTargetF.x - st.camF.x) * kc;
+  st.camF.y += (st.camTargetF.y - st.camF.y) * kc;
+  applyCamera();
+}
+
+function applyCamera() {
+  const z = st.camZ;
+  const f = st.camF;
+  const base = CAM_BASE.clone();
+  // 寄る: 注視点へ近づく
+  base.sub(new THREE.Vector3(f.x, f.y, 0)).multiplyScalar(1 / z).add(new THREE.Vector3(f.x, f.y, 0));
+  const sh = st.shake;
+  if (sh > 0.0008) {
+    base.x += (Math.random() - 0.5) * sh;
+    base.y += (Math.random() - 0.5) * sh;
+  }
+  camera.position.copy(base);
+  camera.lookAt(CAM_LOOK.x + f.x * 0.28, CAM_LOOK.y + (f.y - 0.62) * 0.30, CAM_LOOK.z);
+}
+
+function resize() {
+  const bar = document.getElementById('g3bar');
+  const barH = bar ? Math.round(bar.getBoundingClientRect().height) : 0;
+  document.documentElement.style.setProperty('--barH', barH + 'px');
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  // 縦長では画角を広げて、コップとピッチャーが両方入るようにする
+  camera.fov = w / h < 0.72 ? 32 : 26;
+  camera.updateProjectionMatrix();
+  if (typeof fitCamera === 'function' && glass) fitCamera();
+  uDpr.value = Math.min(2, window.devicePixelRatio || 1);
+}
+
+// ══════════════════════════════════════════════════════════
+//  ループ・操作
+// ══════════════════════════════════════════════════════════
+let last = 0;
+function loop(now) {
+  // 実時間で進める。描画が重い端末でも「注ぐ速さ」が変わらないように、
+  // 1フレームの上限は 0.25 秒まで（それ以上は端末が固まっているとみなす）。
+  const dt = Math.min(0.25, (now - last) / 1000 || 0.016);
+  last = now;
+  update(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+
+function updateSoundIcon() {
+  const on = !AC.muted;
+  document.querySelectorAll('.snd-wave').forEach(e => e.style.display = on ? '' : 'none');
+  const x = document.querySelector('.snd-x');
+  if (x) x.style.display = on ? 'none' : '';
+}
+
+function bind() {
+  const btn = $('pourBtn');
+  // 重要: pointerdown で capture する。
+  //   しないとボタンの :active 変形でポインタが外れ、pointerleave が
+  //   発火して「押しているのに注ぐのが止まる」バグになる。
+  const down = (e) => {
+    if (e) {
+      e.preventDefault();
+      if (e.pointerId !== undefined && e.target.setPointerCapture) {
+        try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+    }
+    startPour();
+  };
+  const up = (e) => { if (e) e.preventDefault(); endPour(); };
+  btn.addEventListener('pointerdown', down);
+  btn.addEventListener('pointerup', up);
+  btn.addEventListener('pointercancel', up);
+  btn.addEventListener('lostpointercapture', up);
+  window.addEventListener('pointerup', up);
+  canvas.addEventListener('pointerdown', down);
+  canvas.addEventListener('pointerup', up);
+  canvas.addEventListener('pointercancel', up);
+  // ボタン上でのスクロール／長押しメニューを抑止（モバイル）
+  btn.style.touchAction = 'none';
+  btn.style.webkitUserSelect = 'none';
+  btn.style.userSelect = 'none';
+  btn.addEventListener('contextmenu', (e) => e.preventDefault());
+  window.addEventListener('keydown', (e) => { if (e.code === 'Space' && !e.repeat) { e.preventDefault(); startPour(); } });
+  window.addEventListener('keyup', (e) => { if (e.code === 'Space') { e.preventDefault(); endPour(); } });
+
+  $('playBtn').onclick = startRun;
+  $('retryBtn').onclick = () => { $('resultCard').classList.add('hide'); startRun(); };
+  $('menuBtn').onclick = () => {
+    if (st.phase === 'title' || st.phase === 'result') $('menuCard').classList.remove('hide');
+    else toast('いまは遊んでいる最中です');
+  };
+  $('closeMenu').onclick = () => $('menuCard').classList.add('hide');
+  const openRank = () => { renderRank(); $('rankCard').classList.remove('hide'); };
+  $('rankBtn').onclick = openRank;
+  $('rankBtn2').onclick = openRank;
+  $('closeRank').onclick = () => $('rankCard').classList.add('hide');
+  $('clearRank').onclick = () => {
+    save.runs = []; writeSave(save); renderRank(); toast('記録を消しました');
+  };
+  $('shareBtn').onclick = () => {
+    const txt = `「そっと、ついで」で ${st.combo}杯連続・${st.score}点。\n指を離しても、しずくは止まらない。`;
+    const url = location.href;
+    if (navigator.share) { navigator.share({ text: txt, url }).catch(() => {}); }
+    else {
+      window.open('https://x.com/intent/post?text=' + encodeURIComponent(txt) +
+                  '&url=' + encodeURIComponent(url), '_blank', 'noopener');
+    }
+  };
+  $('soundBtn').onclick = () => {
+    AC.muted = !AC.muted;
+    updateSoundIcon();
+    if (AC.master) AC.master.gain.value = AC.muted ? 0 : 0.5;
+    if (AC.muted) pourStop();
+  };
+  updateSoundIcon();
+
+  const watch = () => {
+    const bar = document.getElementById('g3bar');
+    if (!bar) return;
+    let lastH = -1;
+    const tick = () => {
+      const h = Math.round(bar.getBoundingClientRect().height);
+      if (h !== lastH) { lastH = h; resize(); }
+      setTimeout(tick, 700);
+    };
+    tick();
+  };
+  watch();
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 220));
+  document.addEventListener('visibilitychange', () => { last = performance.now(); });
+}
+
+// 開発用フック（?debug を付けたときだけ有効。本番のページには出さない）
+if (location.search.includes('debug')) {
+  window.__g3 = { THREE, scene, camera, st, glass: () => glass, pitcher,
+                  setCam: (x,y,z, lx,ly,lz) => { CAM_BASE.set(x,y,z); CAM_LOOK.set(lx,ly,lz); } };
+}
+
+// ── 起動 ──
+$('titleBest').textContent = save.best;
+$('titleCombo').textContent = save.bestCombo;
+bind();
+resize();
+fitCamera();
+applyCamera();
+last = performance.now();
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
