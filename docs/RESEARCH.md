@@ -90,7 +90,7 @@ sitemap.xml（2行）
 | SNSカード | `og/?g=<slug>`（ブラウザだけで 1200×630 の見出し画像を描く。失敗時は `assets/ogp-fallback.jpg`） |
 | 調査・運用ルール | `docs/RESEARCH.md`（本ファイル）, `docs/WORKFLOW.md`, `CLAUDE.md` |
 
-### あなた（koki-ota0）がやる必要があること
+### あなた（kokilux）がやる必要があること
 
 1. **GitHub Pages を有効化**（Settings → Pages → Source: **GitHub Actions**）。
    ※ このサンドボックスの権限では Pages の API が 403 で、代行できませんでした。**ここだけ手作業が必要**です。
