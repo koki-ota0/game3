@@ -1,0 +1,21 @@
+# 補助: GitHub Pages の定期ビルドが止まらないように、毎日1回だけ空コミットで合図を送る。
+# （Pages の「Deploy from a branch」は、しばらく push が無いとビルドがスキップされることがある）
+name: keep-pages-fresh
+
+on:
+  schedule:
+    - cron: '17 3 * * 1'   # 毎週月曜 12:17 JST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q --allow-empty -m "定期ビルドの合図（自動）" && git push -q

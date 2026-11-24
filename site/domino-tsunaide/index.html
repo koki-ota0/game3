@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>ドミノ、つないでください</title>
+<meta name="description" content="決まった本数のドミノで、レバーからベルまでの連鎖の道を組み立てるパズル。">
+<meta name="theme-color" content="#0b0f16">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0f16'/%3E%3Crect x='13' y='24' width='9' height='24' rx='2' fill='%23ffce54'/%3E%3Crect x='28' y='28' width='9' height='20' rx='2' fill='%23e9edf4'/%3E%3Crect x='43' y='32' width='9' height='16' rx='2' fill='%236ee7d4'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0b0f16; --ink:#eef2f8; --sub:#a6b6c8; --dim:#71829a;
+  --panel:#121a25ee; --line:#ffffff21; --accent:#ffce54; --accentInk:#161c24;
+  --good:#6ee7d4; --bad:#ff8b7a;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+  user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+#stage{position:fixed;inset:0;display:block;touch-action:none}
+#hud{position:fixed;inset:0;pointer-events:none}
+#hud>*{pointer-events:auto}
+.hide{display:none!important}
+
+/* 上 */
+#top{position:absolute;top:calc(8px + env(safe-area-inset-top));left:10px;right:10px;display:flex;gap:8px;align-items:flex-start;justify-content:space-between}
+.badge{background:#0d141ee0;border:1px solid var(--line);border-radius:12px;padding:7px 11px;font-size:12px;color:var(--sub);line-height:1.4;backdrop-filter:blur(6px)}
+.badge b{color:var(--ink);font-variant-numeric:tabular-nums}
+#stageName{font-weight:800;letter-spacing:.02em}
+.iconbtn{width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:#0d141ee0;color:var(--ink);font-size:15px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+.iconbtn:active{transform:scale(.95)}
+#angles{display:flex;gap:6px}
+#angles .iconbtn{width:34px;height:34px;font-size:13px}
+
+/* 角度ルーラー（今どれだけ曲がれるか） */
+#dial{position:relative;position:absolute;left:10px;top:calc(56px + env(safe-area-inset-top));width:132px;background:#0d141ee0;border:1px solid var(--line);border-radius:12px;padding:8px;backdrop-filter:blur(6px);font-size:11px;color:var(--sub)}
+#dialText{position:absolute;left:11px;top:9px;font-weight:800;color:#dfe7f1;font-size:17px;line-height:1;font-variant-numeric:tabular-nums}
+#dialText b{font-size:21px}
+#dialText span{display:block;font-size:10px;font-weight:700;color:#6f8194;margin-top:3px}
+#dialText.over{color:var(--bad)}
+#dialCanvas{display:block;width:116px;height:58px}
+
+/* 下 */
+#tray{position:absolute;left:10px;right:10px;bottom:calc(10px + var(--barH,0px) + env(safe-area-inset-bottom));display:flex;gap:8px;align-items:stretch}
+#trayInner{flex:1;display:flex;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:9px 12px;backdrop-filter:blur(8px)}
+#budget{display:flex;flex-wrap:wrap;gap:4px;flex:1;align-content:center;min-height:34px}
+.peg{width:9px;height:26px;border-radius:3px;background:var(--accent);box-shadow:0 2px 0 #0006}
+.peg.used{background:#ffffff17;box-shadow:none}
+#count{font-variant-numeric:tabular-nums;font-weight:900;font-size:15px;white-space:nowrap}
+#count span{font-size:11px;color:var(--dim);font-weight:700}
+#runBtn{width:108px;border-radius:16px;border:0;background:var(--accent);color:var(--accentInk);font:900 17px inherit;letter-spacing:.06em;box-shadow:0 6px 0 #00000055}
+#runBtn:active{transform:translateY(2px);box-shadow:0 3px 0 #00000055}
+#runBtn:disabled{filter:grayscale(.65) brightness(.7);box-shadow:none}
+
+#hint{position:absolute;left:50%;bottom:calc(96px + var(--barH,0px) + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:#0d141ed9;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:12px;color:var(--sub);
+  white-space:nowrap;opacity:0;transition:opacity .25s;backdrop-filter:blur(6px);max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+#hint.on{opacity:1}
+
+/* カード */
+.card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(91vw,540px);
+  background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:22px 20px 18px;text-align:center;
+  box-shadow:0 24px 70px #000a;backdrop-filter:blur(10px);max-height:88vh;overflow:auto}
+.card h1{margin:0 0 6px;font-size:clamp(22px,6.6vw,32px);line-height:1.3}
+.card .sub{margin:0 0 15px;color:var(--sub);font-size:13.5px;line-height:1.7}
+.btn{display:block;width:100%;padding:15px;border-radius:14px;border:0;background:var(--accent);color:var(--accentInk);
+  font:900 clamp(16px,4.5vw,18px) inherit;letter-spacing:.02em}
+.btn:active{transform:scale(.985)}
+.btn.ghost{background:#ffffff0d;color:var(--ink);border:1px solid var(--line);font-weight:700;margin-top:9px}
+.rules{margin:0 0 14px;padding:0;list-style:none;text-align:left;font-size:13px;color:var(--sub);line-height:1.7}
+.rules li{padding:4px 0 4px 24px;position:relative}
+.rules li::before{content:"▸";position:absolute;left:6px;color:var(--accent)}
+.rules b{color:var(--ink)}
+.stageList{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:12px 0 4px}
+.stageBtn{padding:12px 0 9px;border-radius:12px;border:1px solid var(--line);background:#ffffff09;color:var(--ink);font-weight:800;font-size:13px;line-height:1.35}
+.stageBtn small{display:block;font-size:10px;color:var(--dim);font-weight:600}
+.stageBtn[data-clear="1"]{border-color:var(--good);color:var(--good)}
+.stageBtn[data-clear="1"] small{color:#6ee7d4aa}
+#resultMark{font-size:clamp(26px,8vw,38px);font-weight:900;margin:0 0 4px}
+#resultMark.ok{color:var(--good)}#resultMark.ng{color:var(--bad)}
+#resultLine{color:var(--sub);font-size:13.5px;margin:0 0 14px;line-height:1.7}
+#resultStats{display:flex;gap:8px;justify-content:center;margin:0 0 14px}
+#resultStats div{flex:1;background:#ffffff08;border:1px solid var(--line);border-radius:12px;padding:9px 4px}
+#resultStats b{display:block;font-size:19px;font-variant-numeric:tabular-nums}
+#resultStats span{font-size:10.5px;color:var(--dim)}
+#toast{position:absolute;left:50%;top:calc(60px + env(safe-area-inset-top));transform:translate(-50%,-6px);
+  background:#0d141ee6;border:1px solid var(--line);border-radius:12px;padding:8px 14px;font-size:12.5px;color:var(--ink);
+  opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;max-width:92vw}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div id="hud">
+  <div id="top">
+    <div class="badge"><span id="stageName">1 / 8</span><br><b id="budgetText">のこり 6本</b></div>
+    <div id="angles">
+      <button class="iconbtn" id="undoBtn" title="1本もどす（Z）" aria-label="1本もどす">↶</button>
+      <button class="iconbtn" id="resetBtn" title="置き直す" aria-label="置き直す">⟲</button>
+      <button class="iconbtn" id="menuBtn" title="ステージをえらぶ" aria-label="ステージをえらぶ">☰</button>
+    </div>
+  </div>
+
+  <div id="dial" class="hide">
+    <div id="dialText"><b id="dialNow">0</b>°<span id="dialMax">/ 60°</span></div>
+    <canvas id="dialCanvas" width="232" height="116"></canvas>
+  </div>
+
+  <div id="tray" class="hide">
+    <div id="trayInner">
+      <div id="budget"></div>
+      <div id="count">6<span>本</span></div>
+    </div>
+    <button id="runBtn">倒す</button>
+  </div>
+
+  <div id="hint">指で<b>向き</b>を指すと、ドミノが1本置かれます</div>
+  <div id="toast"></div>
+
+  <section id="titleCard" class="card">
+    <h1>ドミノ、つないでください</h1>
+    <p class="sub">レバーを倒して、ベルまで連鎖をつなぐ。<br>ドミノは決まった本数だけ。<b>曲がれる角度</b>も、<b>届く距離</b>も決まっています。</p>
+    <ul class="rules">
+      <li>指で <b>向き</b> を指すだけで、ドミノが1本、そこへ置かれます（置ける所は<b style="color:#6ee7d4">青</b>／ダメな時は<b style="color:#ff8b7a">赤</b>）</li>
+      <li>1本ごとに曲がれるのは <b>ステージの角度まで</b>。左上のメーターが、いま狙っている向き</li>
+      <li>ベルに近づいたら「倒す」。<b>ピタッと合わせなくても</b>、少しの距離なら鳴ります</li>
+      <li><b>曲がるほど、連鎖がゆるむ</b>。曲がり1回ごとに、ベルの鳴る輪が小さくなります</li>
+    </ul>
+    <button class="btn" id="playBtn">はじめる</button>
+    <button class="btn ghost" id="allStagesBtn">ステージをえらぶ</button>
+  </section>
+
+  <section id="menuCard" class="card hide">
+    <h1>ステージ</h1>
+    <p class="sub">下の段ほど、曲がれる角度がせまく、本数も多くなります。</p>
+    <div class="stageList" id="stageList"></div>
+    <button class="btn ghost" id="closeMenuBtn">とじる</button>
+  </section>
+
+  <section id="resultCard" class="card hide">
+    <p id="resultMark">つながった！</p>
+    <p id="resultLine"></p>
+    <div id="resultStats">
+      <div><b id="statChain">0</b><span>つながった</span></div>
+      <div><b id="statUse">0</b><span>つかった</span></div>
+      <div><b id="statLeft">0</b><span>のこり</span></div>
+      <div><b id="statBends">0</b><span>曲がった</span></div>
+    </div>
+    <button class="btn" id="nextBtn">次のステージ</button>
+    <button class="btn ghost" id="retryBtn">置き直す</button>
+  </section>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   ドミノ、つないでください
+   ・ドミノは1種類（1本 = 同じ大きさ）。むずかしさは「曲がれる角度」と「本数」で作る。
+   ・届く距離 REACH はどの駒も同じ（56）。だから「置いた瞬間」に届く/届かないが決まる。
+   ・すべてのステージは、設計時に「解けること」を確かめてある（solution がその証拠）。
+   ===================================================================== */
+
+// ── 盤面（仮想座標 420 x 720） ──
+const BW = 420, BH = 720;
+const REACH = 56;     // 1本が倒れて届く距離
+const REACH_TOL = 1.5; // 画面の丸め誤差ぶんのあそび（見た目どおりに置けるように）
+const MIN_GAP = 18;   // これより近くは置けない
+const WIDTH = 8;      // 見た目の幅
+const HEIGHT = 26;    // 見た目の高さ
+
+// ── ステージ（solution は「解ける」ことの証明。ゲーム中は使わない） ──
+const STAGES = [
+  { name:'まっすぐ', maxDeg:60, lever:[210,700], bell:[210,430], budget:6, walls:[], solution:[[210,644],[210,588],[210,532],[210,476]] },
+  { name:'ひと曲がり', maxDeg:55, lever:[110,700], bell:[311,552], budget:6, walls:[], solution:[[149.6,660.4],[189.2,620.8],[228.79,581.21],[268.39,541.61]] },
+  { name:'ひと折れ', maxDeg:50, lever:[96,700], bell:[182,414], budget:7, walls:[], solution:[[96,644],[96,588],[96,532],[96,476],[124,427.5]] },
+  { name:'回廊', maxDeg:46, lever:[90,700], bell:[273,393], budget:8, walls:[[0,640,70,30],[290,500,130,30]], solution:[[90,644],[90,588],[90,532],[129.6,492.4],[169.2,452.8],[208.79,413.21]] },
+  { name:'かべ', maxDeg:42, lever:[84,700], bell:[181,302], budget:9, walls:[[0,660,64,26],[0,520,64,26],[0,380,64,26]], solution:[[84,644],[84,588],[84,532],[84,476],[84,420],[98.49,365.91],[112.99,311.82]] },
+  { name:'きつい折れ', maxDeg:32, lever:[104,700], bell:[280,290], budget:9, walls:[[140,400,88,64]], solution:[[132,651.5],[160,603.01],[188,554.51],[216,506.01],[244,457.51],[258.49,403.42],[272.99,349.33]] },
+  { name:'ふた折れ', maxDeg:38, lever:[90,700], bell:[271,265], budget:10, walls:[[0,640,60,24],[360,540,60,24],[0,440,60,24],[360,340,60,24]], solution:[[90,644],[90,588],[90,532],[118,483.5],[146,435.01],[174,386.51],[202,338.01],[230,289.51]] },
+  { name:'さいごの折れ', maxDeg:26, lever:[130,700], bell:[380,200], budget:11, walls:[], solution:[[144.49,645.91],[158.99,591.82],[186.99,543.32],[214.99,494.82],[242.99,446.32],[270.99,397.83],[298.99,349.33],[326.99,300.83],[354.99,252.33]] }
+];
+
+// ── DOM ──
+const $ = (id) => document.getElementById(id);
+const cv = $('stage'), ctx = cv.getContext('2d');
+const dialCv = $('dialCanvas'), dialCtx = dialCv.getContext('2d');
+let W = 0, H = 0, dpr = 1, scale = 1, ox = 0, oy = 0, barH = 0;
+
+const S = {
+  stage: 0,
+  pieces: [],     // {x,y,a}  a = 置いた向き（レバー→その駒）
+  phase: 'title', // title | edit | run | result
+  ghost: null,
+  runT: 0,
+  chain: [],
+  clears: []
+};
+
+// ── 音（ファイルなし・Web Audio で合成） ──
+const AC = { ctx: null, on: true };
+function tone(freq, dur = 0.06, type = 'triangle', vol = 0.12, slide = 0) {
+  if (!AC.on) return;
+  try {
+    AC.ctx = AC.ctx || new (window.AudioContext || window.webkitAudioContext)();
+    const ac = AC.ctx, t = ac.currentTime;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.007);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(ac.destination);
+    o.start(t); o.stop(t + dur + 0.03);
+  } catch (e) { /* 無音でも遊べる */ }
+}
+
+// ── 画面 ──
+function resize() {
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // サイト共通の下バー（#g3bar）があるときは、その高さぶん盤面を上げる
+  const bar = document.getElementById('g3bar');
+  barH = bar ? Math.round(bar.getBoundingClientRect().height) : 0;
+  document.documentElement.style.setProperty('--barH', barH + 'px');
+  const padTop = 60, padBottom = 96, padSide = 8;
+  const availW = W - padSide * 2, availH = H - barH - padTop - padBottom;
+  scale = Math.min(availW / BW, availH / BH);
+  ox = (W - BW * scale) / 2;
+  oy = padTop + (availH - BH * scale) / 2;
+  draw();
+}
+const sx = (x) => ox + x * scale;
+const sy = (y) => oy + y * scale;
+const toBoard = (cx, cy) => ({ x: (cx - ox) / scale, y: (cy - oy) / scale });
+
+// ── 幾何 ──
+const norm = (a) => { let r = a % (Math.PI * 2); if (r > Math.PI) r -= Math.PI * 2; if (r < -Math.PI) r += Math.PI * 2; return r; };
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const dirOf = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
+const DEG = Math.PI / 180;
+
+function stage() { return STAGES[S.stage]; }
+function lever() { return { x: stage().lever[0], y: stage().lever[1], a: -Math.PI / 2 }; }
+function bell() { return { x: stage().bell[0], y: stage().bell[1] }; }
+function lastPiece() { return S.pieces.length ? S.pieces[S.pieces.length - 1] : lever(); }
+
+function inWall(p, pad = 0) {
+  for (const [x, y, w, h] of (stage().walls || [])) {
+    if (p.x > x - pad && p.x < x + w + pad && p.y > y - pad && p.y < y + h + pad) return true;
+  }
+  return false;
+}
+function segHitsWall(a, b) {
+  const n = Math.max(2, Math.ceil(dist(a, b) / 4));
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    if (inWall({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, 3)) return true;
+  }
+  return false;
+}
+
+// ── 方針: 置くのは「向き」だけ ──
+// 指で置いた位置にそのまま置くと、56px 先の点を数pxの精度で指す必要があり、指では無理。
+// そこで「指した方向」だけを使い、駒はかならず今の駒から REACH の位置に置く。
+// むずかしさは「曲がれる角度」と「本数」だけになり、設計したパズルと一致する。
+const SNAP_DEG = 15;  // 向きは 15° きざみ（指で狙っても、ちゃんと狙った向きに決まる）
+
+// 指の位置 → いちばん近い「きざみ」の向き
+function aimAngle(cx, cy) {
+  const prev = lastPiece();
+  const p = toBoard(cx, cy);
+  const raw = Math.atan2(p.y - prev.y, p.x - prev.x);
+  return Math.round(raw / (SNAP_DEG * DEG)) * SNAP_DEG * DEG;
+}
+
+// 置いた駒の位置を、向きから計算する
+function landing(prev, a) {
+  return { x: prev.x + Math.cos(a) * REACH, y: prev.y + Math.sin(a) * REACH, a };
+}
+
+// 向き a で置けるか
+function checkAngle(a) {
+  const st = stage();
+  const prev = lastPiece();
+  const turn = Math.abs(norm(a - prev.a));
+  const lim = st.maxDeg * DEG;
+  const p = landing(prev, a);
+  if (S.pieces.length >= st.budget) return { ok: false, why: '本数がもう無い', a, p };
+  if (turn > lim + 1e-6) return { ok: false, why: `曲がりすぎ（${Math.round(st.maxDeg)}°まで）`, a, p, turn };
+  if (p.x < 12 || p.y < 12 || p.x > BW - 12 || p.y > BH - 12) return { ok: false, why: '盤面の外', a, p, turn };
+  if (inWall(p, 7)) return { ok: false, why: '障害物の上', a, p, turn };
+  if (segHitsWall(prev, p)) return { ok: false, why: '障害物をまたぐ', a, p, turn };
+  return { ok: true, a, p, turn };
+}
+
+// ベルに届くか（距離は「最後の駒からベルのあいだ」で見る）
+const BELL_REACH = REACH + 22;   // ベルは「この距離まで近づけば鳴る」（=78）
+// 曲がるたびに連鎖が“ゆるむ”ぶん、ベルの鳴る距離がせまくなる。
+// → まっすぐ突っ切るより、曲がりながら近づくほうが有利。角度のパズルが本題になる。
+const BEND_COST = 9;             // 1回曲がるごとに 9 せまくなる
+function bellReachFor(bends) { return BELL_REACH - bends * BEND_COST; }
+function checkBell(from) {
+  const b = bell();
+  const d = Math.hypot(b.x - from.x, b.y - from.y);
+  if (d > BELL_REACH) return { ok: false, d, why: 'ベルまで、まだ遠い' };
+  if (segHitsWall(from, b)) return { ok: false, d, why: 'ベルまで障害物がある' };
+  return { ok: true, d };
+}
+
+// 旧: 位置指定の判定（solution の検算用に残す）
+function check(p, maxDeg) {
+  const st = stage();
+  const prev = lastPiece();
+  const a = dirOf(prev, p);
+  const turn = Math.abs(norm(a - prev.a));
+  const lim = (maxDeg !== undefined ? maxDeg : st.maxDeg) * DEG;
+  const d = dist(prev, p);
+  if (p.x < 14 || p.y < 14 || p.x > BW - 14 || p.y > BH - 14) return { ok: false, why: '盤面の外' };
+  if (inWall(p, 9)) return { ok: false, why: '障害物の上' };
+  if (d < MIN_GAP) return { ok: false, why: '近すぎる' };
+  if (d > REACH + REACH_TOL) return { ok: false, why: '届かない（もっと近く）' };
+  if (turn > lim + 1e-6) return { ok: false, why: `曲がりすぎ（${Math.round(st.maxDeg)}°まで）` };
+  if (segHitsWall(prev, p)) return { ok: false, why: '障害物をまたぐ' };
+  if (S.pieces.length >= st.budget) return { ok: false, why: '本数がもう無い' };
+  return { ok: true, a, turn, d };
+}
+
+// 連鎖: レバー → 置いた順 → ベル
+function simulate() {
+  const chain = [];
+  let cur = lever();
+  for (let i = 0; i < S.pieces.length; i++) {
+    const p = S.pieces[i];
+    if (dist(cur, p) > REACH + REACH_TOL || segHitsWall(cur, p)) break;
+    chain.push(i); cur = p;
+  }
+  const b = bell();
+  const gap = Math.hypot(b.x - cur.x, b.y - cur.y);
+  // 曲がった回数を数える（レバー→1本目も、向きが変わっていれば曲がり）
+  let bends = 0, prevA = lever().a, prevP = lever();
+  for (const i of chain) {
+    const p = S.pieces[i];
+    bends += Math.abs(norm(dirOf(prevP, p) - prevA)) > 0.5 * DEG ? 1 : 0;
+    prevA = dirOf(prevP, p); prevP = p;
+  }
+  const reach = bellReachFor(bends);
+  // 1本も置いていなければ、レバーから直接ベルに届いていても「鳴った」ことにしない
+  const hit = chain.length > 0 && gap <= reach && !segHitsWall(cur, b);
+  return { chain, last: cur, hit, gap, bends, reach };
+}
+
+// ── 描画 ──
+function rr(c, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  c.beginPath();
+  c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+
+function draw() {
+  if (!W) return;
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#0b0f16'); bg.addColorStop(1, '#111a25');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  // 盤面
+  ctx.save();
+  rr(ctx, ox - 2, oy - 2, BW * scale + 4, BH * scale + 4, 14 * scale);
+  ctx.fillStyle = '#0f1721'; ctx.fill();
+  ctx.clip();
+  ctx.strokeStyle = '#ffffff0c'; ctx.lineWidth = 1;
+  for (let x = 0; x <= BW; x += 42) { ctx.beginPath(); ctx.moveTo(sx(x), oy); ctx.lineTo(sx(x), sy(BH)); ctx.stroke(); }
+  for (let y = 0; y <= BH; y += 42) { ctx.beginPath(); ctx.moveTo(ox, sy(y)); ctx.lineTo(sx(BW), sy(y)); ctx.stroke(); }
+
+  // 障害物
+  for (const [x, y, w, h] of (stage().walls || [])) {
+    ctx.fillStyle = '#1a2432'; ctx.strokeStyle = '#2c3d52'; ctx.lineWidth = 1.4;
+    rr(ctx, sx(x), sy(y), w * scale, h * scale, 4 * scale); ctx.fill(); ctx.stroke();
+  }
+
+  const lv = lever(), bl = bell();
+  const sim = simulate();
+
+  // 届く範囲（最後の駒のまわり）
+  const lastReach = sim.chain.length ? sim.last : lv;
+  const grad = ctx.createRadialGradient(sx(lastReach.x), sy(lastReach.y), 0, sx(lastReach.x), sy(lastReach.y), REACH * scale);
+  grad.addColorStop(0, 'rgba(110,231,212,.13)');
+  grad.addColorStop(1, 'rgba(110,231,212,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(sx(lastReach.x), sy(lastReach.y), REACH * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.setLineDash([3, 6]); ctx.strokeStyle = '#6ee7d445'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(sx(lastReach.x), sy(lastReach.y), REACH * scale, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+
+  // レバー
+  drawLever(lv, sim.chain.length ? S.pieces[0].a : lv.a);
+  // ベル
+  drawBell(bl, sim.hit);
+
+  // 置いたドミノ
+  for (let i = 0; i < S.pieces.length; i++) {
+    drawDomino(S.pieces[i], sim.chain.includes(i), false);
+  }
+
+  // なぞり中の仮置き
+  if (S.ghost) {
+    const c = S.ghost.ok ? '#6ee7d4' : '#ff8b7a';
+    ctx.save(); ctx.globalAlpha = .9;
+    drawDomino({ x: S.ghost.x, y: S.ghost.y, a: S.ghost.a }, S.ghost.ok, true, c);
+    ctx.restore();
+    if (!S.ghost.ok && S.ghost.why) {
+      ctx.fillStyle = '#ff8b7a';
+      ctx.font = `700 ${Math.max(11, 11.5 * scale)}px "Hiragino Sans",sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(S.ghost.why, sx(S.ghost.x), sy(S.ghost.y) - 24 * scale);
+      ctx.textAlign = 'left';
+    }
+    // 残り角度のリング
+    drawAngleArc(S.ghost.x, S.ghost.y, S.ghost.a, S.ghost.turn);
+  }
+
+  // 倒れる演出
+  if (S.phase === 'run') {
+    const k = S.runT;
+    for (const i of S.chain) {
+      const p = S.pieces[i];
+      const order = S.chain.indexOf(i);
+      const t = Math.max(0, Math.min(1, (k - order * (0.85 / Math.max(1, S.chain.length))) / 0.22));
+      if (t > 0) drawFall(p, t);
+    }
+  }
+  ctx.restore();
+
+  drawDial();
+}
+
+function drawDomino(p, lit, isGhost, color) {
+  ctx.save();
+  ctx.translate(sx(p.x), sy(p.y));
+  ctx.rotate(p.a + Math.PI / 2);
+  const w = WIDTH * scale, h = HEIGHT * scale;
+  ctx.fillStyle = '#00000055';
+  rr(ctx, -w / 2 + 1.5 * scale, -h / 2 + 2.5 * scale, w, h, 3 * scale); ctx.fill();
+  const fill = color || (lit ? '#ffce54' : '#e6ebf3');
+  const g = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+  g.addColorStop(0, fill);
+  g.addColorStop(1, color ? fill : (lit ? '#ffb02e' : '#c3ccda'));
+  ctx.fillStyle = g;
+  rr(ctx, -w / 2, -h / 2, w, h, 3 * scale); ctx.fill();
+  if (!isGhost) {
+    ctx.fillStyle = lit ? '#7a4a00aa' : '#8b95a6aa';
+    ctx.beginPath(); ctx.arc(0, -h * 0.17, w * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, h * 0.17, w * 0.12, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawAngleArc(x, y, a, turn) {
+  const lim = stage().maxDeg * DEG;
+  ctx.save();
+  ctx.translate(sx(x), sy(y));
+  ctx.strokeStyle = '#ffffff22'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(0, 0, 22 * scale, a - lim, a + lim); ctx.stroke();
+  // 曲がった分
+  const prevA = lastPiece().a;
+  ctx.strokeStyle = turn > lim ? '#ff8b7a' : '#6ee7d4';
+  ctx.lineWidth = 3 * scale;
+  let d0 = norm(a - prevA);
+  d0 = Math.max(-lim, Math.min(lim, d0));
+  ctx.beginPath(); ctx.arc(0, 0, 22 * scale, prevA, prevA + d0, d0 < 0); ctx.stroke();
+  ctx.restore();
+}
+
+function drawLever(lv, dir) {
+  ctx.save();
+  ctx.fillStyle = '#213247';
+  ctx.beginPath(); ctx.arc(sx(lv.x), sy(lv.y), 13 * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#6ee7d4'; ctx.lineWidth = 2.6 * scale; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(sx(lv.x), sy(lv.y));
+  ctx.lineTo(sx(lv.x + Math.cos(dir) * 13), sy(lv.y + Math.sin(dir) * 13));
+  ctx.stroke();
+  ctx.fillStyle = '#6ee7d4';
+  ctx.beginPath(); ctx.arc(sx(lv.x), sy(lv.y), 4.5 * scale, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawBell(bl, lit) {
+  const px = sx(bl.x), py = sy(bl.y);
+  ctx.save();
+  // この輪のどこかまで来れば鳴る、という目安（曲がるほど小さくなる）
+  const simNow = simulate();
+  ctx.setLineDash([4, 7]);
+  ctx.strokeStyle = lit ? '#6ee7d466' : '#6ee7d42e';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(px, py, Math.max(20, simNow.reach) * scale, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = lit ? '#6ee7d4' : '#7b8ca0'; ctx.lineWidth = 2.2 * scale; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(px, py - 4 * scale); ctx.lineTo(px, py + 12 * scale); ctx.stroke();
+  ctx.fillStyle = lit ? '#6ee7d4' : '#aeb9c8';
+  ctx.beginPath();
+  ctx.moveTo(px - 13 * scale, py - 12 * scale);
+  ctx.quadraticCurveTo(px, py - 30 * scale, px + 13 * scale, py - 12 * scale);
+  ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(px, py - 30 * scale, 3.6 * scale, 0, Math.PI * 2); ctx.fill();
+  if (lit) {
+    ctx.strokeStyle = '#6ee7d488'; ctx.lineWidth = 2 * scale;
+    ctx.beginPath(); ctx.arc(px, py - 16 * scale, (22 + Math.sin(performance.now() / 260) * 3) * scale, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawFall(p, t) {
+  const px = sx(p.x), py = sy(p.y);
+  const r = REACH * t;
+  ctx.save();
+  ctx.strokeStyle = '#ffce54'; ctx.lineWidth = Math.max(2, WIDTH * 0.5 * scale); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(px, py);
+  ctx.lineTo(sx(p.x + Math.cos(p.a) * r), sy(p.y + Math.sin(p.a) * r));
+  ctx.stroke();
+  ctx.restore();
+}
+
+// 左上の角度メーター: 上 = まっすぐ、左右 = 曲がれるいっぱい。
+// 15° きざみの目盛りと、いま指している向きを出す。
+function drawDial() {
+  const w = dialCv.width, h = dialCv.height;
+  dialCtx.clearRect(0, 0, w, h);
+  const st = stage();
+  const lim = st.maxDeg * DEG;
+  const base = lastPiece().a;
+  const cur = S.ghost ? S.ghost.a : base;
+  const delta = norm(cur - base);
+  const over = Math.abs(delta) > lim + 1e-6;
+  const cx = w / 2, cy = h - 10, R = h - 24;
+
+  // 曲がれる範囲
+  const span = 75 * DEG;  // 針の振れ幅（角度ではなく“見た目”の範囲）
+  const toX = (d) => cx + (Math.max(-1.25, Math.min(1.25, d / lim)) * R * 0.92);
+  dialCtx.lineWidth = 2;
+  dialCtx.strokeStyle = '#ffffff1c';
+  dialCtx.beginPath(); dialCtx.arc(cx, cy, R, Math.PI, Math.PI * 2); dialCtx.stroke();
+  dialCtx.strokeStyle = over ? '#ff8b7a' : '#6ee7d4';
+  dialCtx.lineWidth = 5; dialCtx.lineCap = 'round';
+  dialCtx.beginPath();
+  dialCtx.arc(cx, cy, R, -Math.PI / 2 - Math.min(lim, span), -Math.PI / 2 + Math.min(lim, span));
+  dialCtx.stroke();
+
+  // 15° きざみの目盛り
+  for (let d = -75; d <= 75; d += 15) {
+    const ang = -Math.PI / 2 + (d / 75) * (Math.PI / 2) * 0.98;
+    const r0 = R - 9, r1 = R - 2;
+    dialCtx.strokeStyle = Math.abs(d) <= st.maxDeg + 1e-6 ? '#8fa3b8' : '#ffffff18';
+    dialCtx.lineWidth = 2;
+    dialCtx.beginPath();
+    dialCtx.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0);
+    dialCtx.lineTo(cx + Math.cos(ang) * r1, cy + Math.sin(ang) * r1);
+    dialCtx.stroke();
+  }
+
+  // いまの向き
+  const a = -Math.PI / 2 + (Math.max(-1, Math.min(1, delta / lim)) * (Math.PI / 2) * 0.98);
+  dialCtx.strokeStyle = over ? '#ff8b7a' : '#ffce54';
+  dialCtx.lineWidth = 3.4; dialCtx.lineCap = 'round';
+  dialCtx.beginPath(); dialCtx.moveTo(cx, cy); dialCtx.lineTo(cx + Math.cos(a) * (R - 6), cy + Math.sin(a) * (R - 6)); dialCtx.stroke();
+  dialCtx.fillStyle = over ? '#ff8b7a' : '#ffce54';
+  dialCtx.beginPath(); dialCtx.arc(cx, cy, 3.4, 0, Math.PI * 2); dialCtx.fill();
+
+  // 文字: 曲がった角度（絶対値）
+  const turned = Math.round(Math.abs(delta) / DEG);
+  // 角度の数字は HTML 側（#dialText）で出す
+  const now = $('dialNow'), maxEl = $('dialMax');
+  if (now) {
+    now.textContent = String(turned);
+    maxEl.textContent = '/ ' + st.maxDeg + '°';
+    $('dialText').classList.toggle('over', over);
+  }
+}
+
+// ── 操作 ──
+let dragging = false;
+cv.addEventListener('pointerdown', (e) => {
+  if (S.phase !== 'edit') return;
+  try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 一部のブラウザでは使えない */ }
+  dragging = true;
+  updateGhost(e.clientX, e.clientY);
+});
+cv.addEventListener('pointermove', (e) => { if (dragging) updateGhost(e.clientX, e.clientY); });
+// （updateGhost 側で「近すぎる指」は無視する）
+cv.addEventListener('pointerup', (e) => {
+  if (!dragging) return;
+  dragging = false;
+  const a = aimAngle(e.clientX, e.clientY);
+  const c = checkAngle(a);
+  if (c.ok) place(c.p, c.a);
+  else if (c.why) { toast(c.why); tone(180, 0.07, 'sine', 0.07, -40); }
+  S.ghost = null; draw();
+});
+cv.addEventListener('pointercancel', () => { dragging = false; S.ghost = null; draw(); });
+window.addEventListener('keydown', (e) => {
+  if (S.phase !== 'edit') return;
+  if (e.key === 'z' || e.key === 'Z' || e.key === 'Backspace') { e.preventDefault(); undo(); }
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); run(); }
+});
+window.addEventListener('resize', () => { resize(); });
+
+// サイト共通の下バー（#g3bar）は、このゲームの後ろから差し込まれることがある。
+// その場合は高さが変わった時点でもう一度レイアウトする（初回だけ）。
+function watchBar() {
+  const bar = document.getElementById('g3bar');
+  if (!bar) return;
+  const apply = () => {
+    const h = Math.round(bar.getBoundingClientRect().height);
+    if (h !== barH) resize();
+  };
+  apply();
+  if (window.ResizeObserver) { try { new ResizeObserver(apply).observe(bar); return; } catch (e) {} }
+  // 保険: 読み込み完了と少し後にもう一度
+  window.addEventListener('load', apply);
+  setTimeout(apply, 300);
+}
+watchBar();
+document.addEventListener('DOMContentLoaded', watchBar);
+
+function updateGhost(cx, cy) {
+  const p = toBoard(cx, cy), prev = lastPiece();
+  // 指が駒から近すぎると向きが定まらないので、そのときは今の仮置きを保つ
+  if (Math.hypot(p.x - prev.x, p.y - prev.y) < 16 && S.ghost) return;
+  const a = aimAngle(cx, cy);
+  const c = checkAngle(a);
+  S.ghost = { x: c.p.x, y: c.p.y, a, turn: c.turn || 0, ok: c.ok, why: c.why || '' };
+  draw();
+}
+
+function place(p, a) {
+  S.pieces.push({ x: p.x, y: p.y, a });
+  tone(560 + S.pieces.length * 14, 0.05, 'triangle', 0.09);
+  afterChange();
+}
+function afterChange() {
+  updateHud();
+  const sim = simulate();
+  $('runBtn').disabled = !S.pieces.length || S.phase !== 'edit';
+  if (sim.hit) toast('ベルまで届いています');
+  draw();
+}
+function undo() {
+  if (!S.pieces.length || S.phase !== 'edit') return;
+  S.pieces.pop();
+  tone(300, 0.05, 'sine', 0.08, -50);
+  afterChange();
+}
+function resetPieces() {
+  S.pieces = []; S.ghost = null; S.phase = 'edit';
+  afterChange();
+}
+
+// ── 倒す ──
+function run() {
+  if (S.phase !== 'edit' || !S.pieces.length) return;
+  const sim = simulate();
+  S.chain = sim.chain;
+  S.phase = 'run'; S.runT = 0;
+  $('runBtn').disabled = true;
+  const start = performance.now();
+  const total = 420 + S.chain.length * 85;
+  let sounded = 0;
+  (function step(now) {
+    S.runT = Math.min(1, (now - start) / total);
+    const want = Math.min(S.chain.length, Math.floor(S.runT * S.chain.length) + 1);
+    while (sounded < want) { tone(920 - sounded * 11, 0.045, 'square', 0.06); sounded++; }
+    draw();
+    if (S.runT < 1) requestAnimationFrame(step);
+    else finish(sim);
+  })(start);
+}
+
+function finish(sim) {
+  S.phase = 'result';
+  const st = stage();
+  const used = S.pieces.length;
+  $('statChain').textContent = sim.chain.length;
+  $('statUse').textContent = used;
+  $('statLeft').textContent = st.budget - used;
+  $('statBends').textContent = sim.bends;
+  const mark = $('resultMark');
+  if (sim.hit) {
+    mark.textContent = 'つながった！';
+    mark.className = 'ok';
+    $('resultLine').textContent = sim.chain.length === used
+      ? `ぜんぶのドミノが倒れて、ベルが鳴りました。`
+      : `${sim.chain.length}本目まで届きました（${used - sim.chain.length}本は使われず）。`;
+    tone(880, 0.12, 'sine', 0.15, 420);
+    setTimeout(() => tone(1320, 0.2, 'sine', 0.13, 200), 110);
+    if (!S.clears.includes(S.stage)) {
+      S.clears.push(S.stage);
+      try { localStorage.setItem('domino.clears.v2', JSON.stringify(S.clears)); } catch (e) {}
+    }
+  } else {
+    const gap = dist(sim.last, bell());
+    mark.textContent = 'とどかなかった';
+    mark.className = 'ng';
+    $('resultLine').textContent = sim.bends >= 2
+      ? '曲がるたびに、ベルの輪がせまくなっています。曲がりを減らすか、曲がり方を変えてみてください。'
+      : 'ベルまで、まだ遠いです。向きをもう少しベル側へ。';
+    tone(210, 0.18, 'sine', 0.13, -70);
+  }
+  $('nextBtn').classList.toggle('hide', !sim.hit || S.stage >= STAGES.length - 1);
+  $('resultCard').classList.remove('hide');
+  updateHud();
+}
+
+// ── HUD ──
+function updateHud() {
+  const st = stage();
+  $('stageName').textContent = `${S.stage + 1} / ${STAGES.length}　${st.name}`;
+  const left = st.budget - S.pieces.length;
+  $('budgetText').textContent = `のこり ${left}本`;
+  $('count').innerHTML = `${left}<span>本</span>`;
+  const wrap = $('budget');
+  wrap.innerHTML = '';
+  for (let i = 0; i < st.budget; i++) {
+    const d = document.createElement('div');
+    d.className = 'peg' + (i < S.pieces.length ? ' used' : '');
+    wrap.appendChild(d);
+  }
+  $('runBtn').disabled = !S.pieces.length || S.phase !== 'edit';
+  $('hint').classList.toggle('on', S.phase === 'edit' && S.pieces.length === 0);
+  if (S.pieces.length === 0 && S.phase === 'edit') $('hint').textContent = '指で向きを指すと、ドミノが1本置かれます';
+  else if (S.phase === 'edit') {
+    const sim = simulate();
+    $('hint').textContent = (S.pieces.length && sim.hit)
+      ? 'ベルまで届いています。「倒す」で連鎖！'
+      : '前のドミノから、指で向きを指して置く';
+  }
+  else $('hint').classList.remove('on');
+}
+
+let toastT = 0;
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('on'), 1300);
+}
+
+// ── ステージ ──
+function loadStage(i) {
+  S.stage = Math.max(0, Math.min(STAGES.length - 1, i));
+  S.pieces = []; S.ghost = null; S.phase = 'edit'; S.runT = 0; S.chain = [];
+  $('titleCard').classList.add('hide');
+  $('menuCard').classList.add('hide');
+  $('resultCard').classList.add('hide');
+  $('tray').classList.remove('hide');
+  $('dial').classList.remove('hide');
+  updateHud(); draw();
+}
+
+function renderStageList() {
+  const wrap = $('stageList');
+  wrap.innerHTML = '';
+  STAGES.forEach((st, i) => {
+    const b = document.createElement('button');
+    b.className = 'stageBtn';
+    b.innerHTML = `${i + 1}<small>${st.name}</small>`;
+    b.dataset.clear = S.clears.includes(i) ? '1' : '0';
+    b.onclick = () => loadStage(i);
+    wrap.appendChild(b);
+  });
+}
+
+// ── 起動 ──
+function boot() {
+  try { S.clears = JSON.parse(localStorage.getItem('domino.clears.v2') || '[]'); } catch (e) { S.clears = []; }
+  resize();
+  $('playBtn').onclick = () => { loadStage(0); tone(660, 0.09, 'triangle', 0.1); };
+  $('allStagesBtn').onclick = () => { renderStageList(); $('titleCard').classList.add('hide'); $('menuCard').classList.remove('hide'); };
+  $('closeMenuBtn').onclick = () => {
+    $('menuCard').classList.add('hide');
+    // タイトル中ならタイトルへ、プレイ中ならゲーム画面へ（真っ暗にならないように）
+    if (S.phase === 'title') $('titleCard').classList.remove('hide');
+    else { $('tray').classList.remove('hide'); $('dial').classList.remove('hide'); draw(); }
+  };
+  $('menuBtn').onclick = () => { renderStageList(); $('menuCard').classList.remove('hide'); };
+  $('undoBtn').onclick = undo;
+  $('resetBtn').onclick = () => { resetPieces(); toast('置いたドミノを消しました'); };
+  $('runBtn').onclick = run;
+  $('retryBtn').onclick = () => { $('resultCard').classList.add('hide'); resetPieces(); };
+  $('nextBtn').onclick = () => { loadStage(S.stage + 1); };
+  updateHud();
+  draw();
+}
+
+boot();
+</script>
+</body>
+</html>

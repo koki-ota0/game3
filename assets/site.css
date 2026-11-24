@@ -1,0 +1,63 @@
+:root{
+  --bg:#0e1117; --bg2:#141b25; --card:#161e29; --line:#ffffff1c;
+  --ink:#eef2f7; --sub:#a9b8c6; --dim:#7d8ea0; --accent:#ffce54; --accent-ink:#131820;
+  --max:1000px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:linear-gradient(180deg,var(--bg),var(--bg2) 60%,var(--bg));color:var(--ink);
+  font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;line-height:1.75}
+a{color:var(--accent)}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 20px}
+.narrow{max-width:760px}
+
+/* ヘッダー */
+.h{position:sticky;top:0;z-index:10;background:#0e1117e6;border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+.h .wrap{display:flex;align-items:center;justify-content:space-between;height:60px}
+.logo{font-weight:900;letter-spacing:.08em;color:var(--ink);text-decoration:none;font-size:17px}
+.h nav{display:flex;gap:18px;font-size:14px}
+.h nav a{color:var(--sub);text-decoration:none}
+.h nav a[aria-current]{color:var(--ink);font-weight:700}
+
+/* 見出し */
+main{padding:34px 0 64px}
+h1{font-size:clamp(24px,4.4vw,34px);line-height:1.35;margin:.2em 0 .5em}
+h1.hero{font-size:clamp(28px,6vw,48px);font-weight:900;letter-spacing:.01em}
+h2{font-size:clamp(18px,3vw,22px);margin:2em 0 .5em;padding-top:.2em}
+.lead{color:var(--sub);margin:0 0 26px}
+.crumb{font-size:13px;color:var(--dim);margin:0 0 10px}
+.crumb a{color:var(--dim)}
+
+/* カードの一覧 */
+.grid{list-style:none;padding:0;margin:0;display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.card{display:block;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 16px 14px;
+  text-decoration:none;color:var(--ink);transition:transform .12s,border-color .12s,background .12s}
+.card:hover,.card:focus-visible{transform:translateY(-2px);border-color:#ffce5466;background:#1a2330}
+.card b{display:block;font-size:16.5px;line-height:1.4}
+.card span{display:block;color:var(--sub);font-size:13.5px;margin-top:4px}
+.card em{display:block;color:var(--dim);font-size:12px;font-style:normal;margin-top:10px}
+
+.btn{display:inline-block;background:var(--accent);color:var(--accent-ink);font-weight:800;text-decoration:none;
+  padding:14px 22px;border-radius:999px;font-size:16px}
+.btn:active{transform:scale(.98)}
+.more{margin:26px 0}
+
+/* 説明ページ */
+.hero-img{margin:18px 0 8px;border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.hero-img img{display:block;width:100%;height:auto}
+.facts{list-style:none;padding:0;margin:22px 0;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.facts li{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.facts b{display:block;font-size:12px;color:var(--dim);font-weight:700}
+.facts span{font-size:14.5px}
+.steps{padding-left:1.2em}
+.steps li{margin:.35em 0}
+
+/* フッター */
+.f{border-top:1px solid var(--line);padding:24px 0 40px;color:var(--dim);font-size:12.5px}
+.f p{margin:.4em 0}
+.f a{color:var(--dim)}
+
+@media (max-width:480px){
+  .h nav{gap:12px;font-size:13px}
+  main{padding:24px 0 48px}
+}
