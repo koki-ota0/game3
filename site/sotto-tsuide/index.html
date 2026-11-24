@@ -1,0 +1,1379 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>そっと、ついで</title>
+<meta name="description" content="傾けたピッチャーから、コップの線ぴったりに注ぐ。指を離しても、しずくは止まらない。">
+<meta name="theme-color" content="#0d1116">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d1116'/%3E%3Cpath d='M22 18h20l-3 30H25z' fill='none' stroke='%23a8e2f0' stroke-width='3'/%3E%3Cpath d='M24 34h16l-2 14H26z' fill='%234fa8c8'/%3E%3C/svg%3E">
+<style>
+:root{
+  --ink:#eef3f7; --sub:#9fb0bf; --dim:#6b7d8c;
+  --warm:#ffc98a; --gold:#ffd79a; --water:#a8e2f0; --line:#ffffff22;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#0a0d11;color:var(--ink);
+  font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+  user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+#stage{position:fixed;left:0;top:0;width:100%;height:100%;display:block;touch-action:none}
+#hud{position:fixed;inset:0;pointer-events:none}
+#hud>*{pointer-events:auto}
+.hide{display:none!important}
+
+/* 上:HUD（バッジ行 → メーター行 の縦積み。重ならせない） */
+#topwrap{position:absolute;left:10px;right:10px;top:calc(9px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:8px;align-items:stretch}
+#top{display:flex;gap:8px;align-items:flex-start;justify-content:space-between}
+.badge{background:#0c1218d9;border:1px solid var(--line);border-radius:13px;padding:7px 12px;font-size:12px;color:var(--sub);line-height:1.45;backdrop-filter:blur(8px)}
+.badge b{color:var(--ink);font-variant-numeric:tabular-nums}
+.badge .big{font-size:17px;font-weight:900;letter-spacing:.01em}
+.iconbtn{width:40px;height:40px;border-radius:13px;border:1px solid var(--line);background:#0c1218d9;color:var(--ink);
+  font-size:15px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);padding:0}
+.iconbtn svg{display:block}
+.iconbtn:active{transform:scale(.94)}
+#btns{display:flex;gap:6px}
+
+/* 誤差メーター */
+#gauge{background:#0c1218d9;border:1px solid var(--line);border-radius:13px;
+  padding:8px 12px 9px;backdrop-filter:blur(8px);text-align:center}
+#gauge .row{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:var(--dim);letter-spacing:.06em}
+#gauge .row b{font-size:19px;line-height:1.15;color:var(--ink);font-variant-numeric:tabular-nums;font-weight:900;letter-spacing:-.01em}
+#gbar{position:relative;height:6px;border-radius:3px;background:#ffffff14;margin-top:5px;overflow:hidden}
+#gfill{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--warm);border-radius:2px;transition:none}
+#gzone{position:absolute;top:0;bottom:0;background:#7dd6a822;border-left:1px solid #7dd6a866;border-right:1px solid #7dd6a866}
+
+/* 下:操作 */
+#ctl{position:absolute;left:10px;right:10px;bottom:calc(10px + var(--barH,0px) + env(safe-area-inset-bottom))}
+#pourBtn{width:100%;height:66px;border-radius:20px;border:1px solid #ffffff2b;
+  background:linear-gradient(#1b2a36,#141d26);color:var(--ink);font:900 19px/1 inherit;letter-spacing:.09em;
+  box-shadow:0 8px 0 #05080b66,inset 0 1px 0 #ffffff1f;display:flex;align-items:center;justify-content:center;gap:10px}
+#pourBtn:active,#pourBtn.on{transform:translateY(3px);box-shadow:0 4px 0 #05080b66,inset 0 1px 0 #ffffff1f;background:linear-gradient(#243a49,#1a2733)}
+#pourBtn.on{border-color:#8fd8ea88}
+#pourBtn small{font-size:11px;font-weight:700;color:var(--dim);letter-spacing:.02em}
+#pourBtn:disabled{filter:grayscale(.5) brightness(.65)}
+
+/* カード */
+.card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(91vw,520px);
+  background:#0c1218f2;border:1px solid var(--line);border-radius:22px;padding:24px 21px 20px;text-align:center;
+  box-shadow:0 26px 70px #000b,inset 0 1px 0 #ffffff12;backdrop-filter:blur(12px);max-height:88vh;overflow:auto}
+.card h1{margin:0 0 9px;font-size:clamp(24px,7vw,33px);line-height:1.28;letter-spacing:.01em}
+.card .sub{color:var(--sub);font-size:14px;line-height:1.75;margin:0 0 16px}
+.card ul{margin:0 0 18px;padding:0;list-style:none;text-align:left;font-size:13.5px;line-height:1.85;color:var(--sub)}
+.card ul li{position:relative;padding-left:20px;margin-bottom:3px}
+.card ul li:before{content:"";position:absolute;left:4px;top:.72em;width:6px;height:6px;border-radius:50%;background:var(--water);opacity:.8}
+.card ul b{color:var(--ink)}
+.btn{width:100%;height:54px;border:0;border-radius:15px;font:900 16px/1 inherit;letter-spacing:.06em;
+  background:var(--warm);color:#1a1208;box-shadow:0 5px 0 #9c6a2e;margin-bottom:8px}
+.btn:active{transform:translateY(2px);box-shadow:0 3px 0 #9c6a2e}
+.btn.ghost{background:#ffffff12;color:var(--ink);box-shadow:none;border:1px solid var(--line);height:48px;font-weight:800;font-size:14px}
+.stageList{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px}
+.stageBtn{padding:12px 0 10px;border-radius:13px;border:1px solid var(--line);background:#ffffff0b;color:var(--ink);
+  font-weight:800;font-size:13px;line-height:1.4}
+.stageBtn small{display:block;font-size:10px;color:var(--dim);font-weight:600;margin-top:2px}
+.stageBtn[data-clear="1"]{border-color:#7dd6a8;color:#7dd6a8}
+.stageBtn[data-locked="1"]{opacity:.38;filter:grayscale(.6)}
+.stageBtn:disabled{pointer-events:none}
+.stageBtn[data-clear="1"] small{color:#7dd6a899}
+
+/* 結果（下寄せ・コンパクト。寄った水面を隠さない） */
+#resultCard{max-height:calc(100vh - 24px - var(--barH,0px));top:auto!important;bottom:calc(10px + var(--barH,0px) + env(safe-area-inset-bottom));transform:translateX(-50%)!important;
+  padding:14px 16px 13px;width:min(93vw,480px);border-radius:20px}
+#resultCard .rhead{display:flex;align-items:baseline;gap:9px;justify-content:center;flex-wrap:wrap}
+#resultCard .rfoot{display:flex;flex-direction:column;gap:10px;margin-top:9px}
+#resultCard #stats{display:flex;justify-content:center;margin:0;gap:24px}
+#resultCard .rbtns{display:flex;gap:8px;margin:0;width:100%}
+#resultCard .rbtns .btn{width:auto;margin:0;height:47px;flex:1 1 auto;white-space:nowrap;min-width:0;
+  font-size:14.5px;padding:0 8px;letter-spacing:.03em}
+#resultCard .rbtns .btn.ghost{flex:0 0 auto;width:auto;padding:0 15px;font-size:13px;height:47px;letter-spacing:.02em}
+#resultCard .num{font-size:42px;margin:1px 0 0;text-align:center}
+#resultCard .line2{margin:0;font-size:12.5px}
+#stats b{font-size:17px}
+#stats span{font-size:10px}
+#resultCard .mark{font-size:12.5px;font-weight:800;letter-spacing:.14em;color:var(--dim);margin:0}
+#resultCard .mark.good{color:#7dd6a8}
+#resultCard .mark.ng{color:#ffa07a}
+#resultCard .num{font-size:52px;font-weight:900;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+#resultCard .num b{font-size:19px;font-weight:800;color:var(--sub);margin-left:5px}
+#resultCard .line2{font-size:13px;color:var(--sub);line-height:1.7;margin:6px 0 16px}
+#stats{display:flex;justify-content:center;gap:22px;margin:14px 0 18px}
+#stats div{text-align:center}
+#stats b{display:block;font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}
+#stats span{font-size:10.5px;color:var(--dim);font-weight:700}
+#toast{position:absolute;left:50%;bottom:calc(150px + var(--barH,0px) + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(6px);
+  background:#0c1218ee;border:1px solid var(--line);border-radius:12px;padding:8px 14px;font-size:12.5px;color:var(--sub);
+  opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;max-width:92vw}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#hint{position:absolute;left:50%;bottom:calc(96px + var(--barH,0px) + env(safe-area-inset-bottom));transform:translateX(-50%);
+  font-size:12px;color:#8fa2b1;white-space:nowrap;opacity:0;transition:opacity .3s;
+  background:#0c1218b8;padding:5px 12px;border-radius:9px;backdrop-filter:blur(6px)}
+#hint.on{opacity:1}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div id="hud">
+  <div id="topwrap">
+    <div id="top">
+      <div class="badge"><span id="stageName">1 / 6</span>　<b class="big" id="targetText">120ml</b><br><span id="glassText" style="font-size:10.5px">コップ A</span></div>
+      <div id="btns">
+        <button class="iconbtn" id="soundBtn" aria-label="音を消す">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3.5 9.5h3.4L11.5 5.6v12.8L6.9 14.5H3.5z"/>
+            <path class="snd-wave" d="M15 9.2a4 4 0 0 1 0 5.6"/>
+            <path class="snd-wave" d="M17.8 6.6a7.6 7.6 0 0 1 0 10.8"/>
+            <path class="snd-x" d="M16 9.6l5.2 4.8M21.2 9.6L16 14.4" style="display:none"/>
+          </svg>
+        </button>
+        <button class="iconbtn" id="menuBtn" aria-label="ステージをえらぶ">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M4 7.2h16M4 12h16M4 16.8h16"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div id="gauge" class="hide">
+      <div class="row"><span id="gLeft">あと</span><b id="nowMl">0<small style="font-size:10px">ml</small></b></div>
+      <div id="gbar"><div id="gzone"></div><div id="gfill"></div></div>
+    </div>
+  </div>
+
+  <div id="ctl" class="hide">
+    <button id="pourBtn">注ぐ <small>長押し</small></button>
+  </div>
+
+  <div id="hint">ボタンを押しているあいだ、注がれます</div>
+  <div id="toast"></div>
+
+  <section id="titleCard" class="card">
+    <h1>そっと、ついで</h1>
+    <p class="sub">傾けたピッチャーから、コップの線ぴったりに注ぐ。<br><b style="color:var(--ink)">指を離しても、しずくは止まらない。</b></p>
+    <ul>
+      <li>「注ぐ」を<b>押しているあいだ</b>、水が出ます。離しても<b>数滴</b>落ちます。</li>
+      <li>線を超えたぶんだけ、机が濡れます。あふれた時点で終わり。</li>
+      <li>線ぴったりで止められたら、次のコップへ。</li>
+    </ul>
+    <button class="btn" id="playBtn">はじめる</button>
+    <button class="btn ghost" id="allStagesBtn">ステージをえらぶ</button>
+  </section>
+
+  <section id="menuCard" class="card hide">
+    <h1>ステージ</h1>
+    <p class="sub">下の段ほど、コップが細く、線が上になります。</p>
+    <div class="stageList" id="stageList"></div>
+    <button class="btn ghost" id="closeMenuBtn">とじる</button>
+  </section>
+
+  <section id="resultCard" class="card hide">
+    <div class="rhead">
+      <p class="mark" id="resultMark">ぴったり</p>
+      <p class="line2" id="resultLine"></p>
+    </div>
+    <p class="num"><span id="resultDiff">0</span><b>ml</b></p>
+    <div class="rfoot">
+      <div id="stats">
+        <div><b id="statStage">0</b><span>クリア</span></div>
+        <div><b id="statBest">0</b><span>ベスト ml</span></div>
+        <div><b id="statLeak">0</b><span>こぼした</span></div>
+      </div>
+      <div class="rbtns">
+        <button class="btn" id="nextBtn">次のコップ</button>
+        <button class="btn ghost" id="retryBtn">もう一度</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   そっと、ついで
+   ─────────────────────────────────────────────────────────────────
+   ・注ぐ量は「押している時間」で決まる。離しても、注ぎ口から数滴落ちる。
+   ・コップには線が1本。その線にぴったり合わせる。
+   ・水は「こぼれたら負け」なので、手前で止める技術が要る。
+
+   絵は canvas 2D だけで描く（画像・3Dライブラリなし）。
+   奥行きは「遠近の計算」ではなく、重なり順と色の寒暖で作る。
+   ===================================================================== */
+
+// ── 画面 ──
+const cv = document.getElementById('stage'), ctx = cv.getContext('2d');
+const $ = (id) => document.getElementById(id);
+let W = 0, H = 0, dpr = 1, S = 1;   // S = レイアウト基準の拡大率
+
+// ── ステージ ──
+// ml: 線の量, glass: コップの太さ(0..1), speed: ml/秒, drip: 離したあと落ちる滴数
+// speed は「1秒で増える ml」。±tol の猶予が 390ms → 190ms と、だんだん短くなる。
+const STAGES = [
+  { name:'はじめてのコップ', ml: 120, glass: 1.00, speed:  9, tol: 3.5, drip: 1 },
+  { name:'すこし細く',       ml: 155, glass: 0.90, speed: 11, tol: 3.2, drip: 2 },
+  { name:'せまい口',         ml: 190, glass: 0.80, speed: 13, tol: 2.8, drip: 2 },
+  { name:'たっぷり',         ml: 225, glass: 0.74, speed: 15, tol: 2.6, drip: 3 },
+  { name:'ゆっくり注ぐ',     ml: 175, glass: 0.68, speed: 10, tol: 2.0, drip: 1 },
+  { name:'最後の一杯',       ml: 250, glass: 0.66, speed: 16, tol: 2.0, drip: 3 }
+];
+const MAX_ML = 300;          // コップの容量（これで満杯）
+const TOL = 3;               // 既定の「ぴったり」幅（各ステージの tol が優先）
+
+// ── 状態 ──
+const st = {
+  stage: 0, phase: 'title',     // title | ready | pouring | settle | over | result
+  ml: 0, pouring: false, t: 0, runT: 0,
+  drops: [], ripples: [], splashes: [], sheets: [], spilled: 0,
+  shake: 0, tilt: 0, targetTilt: 0,
+  clears: [], best: 0, totalLeak: 0,
+  tipX: 0, tipY: 0, streamW: 0,
+  flash: 0, flashColor: '255,201,138',
+  settleT: 0, lastDropT: 0, dripLeft: 0
+};
+
+// ── 音（ファイルなし。Web Audio で合成）──
+const AC = { ctx: null, master: null, muted: false };
+function audioInit() {
+  if (AC.ctx) { if (AC.ctx.state === 'suspended') AC.ctx.resume(); return; }
+  try {
+    const Cur = window.AudioContext || window.webkitAudioContext;
+    if (!Cur) return;
+    AC.ctx = new Cur();
+    AC.master = AC.ctx.createGain();
+    AC.master.gain.value = AC.muted ? 0 : 0.55;
+    AC.master.connect(AC.ctx.destination);
+  } catch (e) { /* 無音でも遊べる */ }
+}
+function env(g, t, peak, atk, dec) {
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + atk);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + atk + dec);
+}
+function tone(freq, dur, peak, type, slide) {
+  if (!AC.ctx || AC.muted) return;
+  try {
+    const ac = AC.ctx, t = ac.currentTime;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(50, freq + slide), t + dur);
+    env(g, t, peak, 0.006, dur);
+    o.connect(g).connect(AC.master);
+    o.start(t); o.stop(t + dur + 0.06);
+  } catch (e) {}
+}
+// 注ぐ音（ノイズ＋フィルタ）
+const NS = { buf: null, src: null, gain: null, filt: null };
+function streamStart() {
+  if (!AC.ctx || AC.muted || NS.src) return;
+  try {
+    const ac = AC.ctx;
+    if (!NS.buf) {
+      const n = ac.sampleRate * 1.0;
+      NS.buf = ac.createBuffer(1, n, ac.sampleRate);
+      const d = NS.buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const src = ac.createBufferSource(); src.buffer = NS.buf; src.loop = true;
+    const filt = ac.createBiquadFilter(); filt.type = 'bandpass'; filt.frequency.value = 1500; filt.Q.value = 0.7;
+    const gain = ac.createGain(); gain.gain.value = 0.0001;
+    src.connect(filt).connect(gain).connect(AC.master);
+    src.start();
+    gain.gain.exponentialRampToValueAtTime(0.16, ac.currentTime + 0.08);
+    NS.src = src; NS.filt = filt; NS.gain = gain;
+  } catch (e) {}
+}
+function streamStop() {
+  if (!NS.src) return;
+  try {
+    const ac = AC.ctx, g = NS.gain, s = NS.src;
+    g.gain.cancelScheduledValues(ac.currentTime);
+    g.gain.setValueAtTime(Math.max(0.0002, g.gain.value), ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.07);
+    setTimeout(() => { try { s.stop(); } catch (e) {} }, 110);
+  } catch (e) {}
+  NS.src = null; NS.gain = null; NS.filt = null;
+}
+function splashSound(power) {
+  tone(220 + Math.random() * 60, 0.10, 0.10 * power, 'sine', -80);
+}
+
+// ── レイアウト ──
+// 論理座標 460 x 820 で組んで、画面に合わせて拡大縮小する
+const LW = 460, LH = 958;   // スマホ縦長の比率。カバー拡大で黒帯を出さない
+let ox = 0, oy = 0;
+function resize() {
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  const bar = document.getElementById('g3bar');
+  const barH = bar ? Math.round(bar.getBoundingClientRect().height) : 0;
+  document.documentElement.style.setProperty('--barH', barH + 'px');
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const availH = H - barH;
+  S = Math.min(W / LW, availH / LH);
+  ox = (W - LW * S) / 2;
+  oy = (availH - LH * S) / 2;
+  draw();
+}
+const X = (x) => ox + x * S;
+const Y = (y) => oy + y * S;
+
+// ── コップの形状（論理座標）──
+// 台は y=560。コップは 300 幅、高さ 236。
+const DESK_Y = 700;
+function glassGeom() {
+  const g = STAGES[st.stage];
+  const w = 92 * g.glass;             // 上半径
+  const cx = 296;
+  const top = 440;                    // コップの上端 y
+  const bot = DESK_Y + 2;
+  const h = bot - top;
+  const rimR = 13 * g.glass;
+  // 水面の y（ml から）
+  const filled = st.ml / MAX_ML;
+  const innerH = h - 14;
+  const surfY = bot - 10 - innerH * filled;
+  // その高さでのコップの内側半径
+  const radAt = (y) => {
+    const t = (bot - y) / h;
+    return w * (1 - 0.22 * (1 - t)) * 0.94;
+  };
+  return { cx, top, bot, h, w, rimR, botR: w * 0.78, surfY, radAt, g };
+}
+// 線の y（目標 ml の水面）
+function lineY(geom) {
+  const innerH = geom.h - 14;
+  return geom.bot - 10 - innerH * (geom.g.ml / MAX_ML);
+}
+
+// ── 乱数（木目・誇り用に固定）──
+let rseed = 20261124;
+const rnd = () => (rseed = (rseed * 16807) % 2147483647) / 2147483647;
+
+// ── 描画: 背景（毎フレーム同じなので、1回作って使い回す）──
+let grainTex = null;
+function grainCanvas() {
+  if (grainTex) return grainTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const img = x.createImageData(128, 128);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const v = 128 + (Math.random() - 0.5) * 190;
+    d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  grainTex = c;
+  return c;
+}
+
+let bgCanvas = null;
+function buildBG() {
+  // オフスクリーン（描いてから1枚絵として貼る）
+  const c = document.createElement('canvas');
+  c.width = Math.round(LW); c.height = Math.round(LH);
+  const x = c.getContext('2d');
+
+  // 奥の闇
+  const g0 = x.createLinearGradient(0, 0, 0, LH);
+  g0.addColorStop(0, '#0a0e13'); g0.addColorStop(0.45, '#12100e'); g0.addColorStop(1, '#080605');
+  x.fillStyle = g0; x.fillRect(0, 0, LW, LH);
+
+  // 窓の光（右上）
+  x.save(); x.globalCompositeOperation = 'lighter';
+  const beam = x.createRadialGradient(LW * 0.86, -40, 10, LW * 0.86, -40, 620);
+  beam.addColorStop(0, 'rgba(255,214,150,0.40)');
+  beam.addColorStop(0.34, 'rgba(255,186,110,0.14)');
+  beam.addColorStop(1, 'rgba(255,150,70,0)');
+  x.fillStyle = beam; x.fillRect(0, 0, LW, LH);
+  // 斜めの光の帯
+  const sl = x.createLinearGradient(120, 0, 460, 700);
+  sl.addColorStop(0, 'rgba(255,205,145,0.10)');
+  sl.addColorStop(1, 'rgba(255,205,145,0)');
+  x.fillStyle = sl;
+  x.beginPath(); x.moveTo(250, -20); x.lineTo(400, -20); x.lineTo(520, 640); x.lineTo(360, 640); x.closePath(); x.fill();
+  x.restore();
+
+  // 机
+  const gd = x.createLinearGradient(0, DESK_Y, 0, LH);
+  gd.addColorStop(0, '#6d4225'); gd.addColorStop(0.28, '#56331b'); gd.addColorStop(1, '#2a170d');
+  x.fillStyle = gd; x.fillRect(0, DESK_Y, LW, LH - DESK_Y);
+  // 木目
+  for (let i = 0; i < 30; i++) {
+    const yy = DESK_Y + Math.pow(rnd(), 1.6) * (LH - DESK_Y);
+    x.strokeStyle = `rgba(0,0,0,${0.05 + rnd() * 0.10})`;
+    x.lineWidth = 0.6 + rnd() * 2.4;
+    x.beginPath(); x.moveTo(-10, yy);
+    for (let xx = 0; xx < LW + 10; xx += 26) x.lineTo(xx, yy + Math.sin(xx / (46 + i * 4) + i * 1.9) * 1.6);
+    x.stroke();
+  }
+  // 机の前端（エッジの光→影）
+  const eg = x.createLinearGradient(0, DESK_Y - 6, 0, DESK_Y + 5);
+  eg.addColorStop(0, 'rgba(255,200,140,0.10)'); eg.addColorStop(1, 'rgba(0,0,0,0.35)');
+  x.fillStyle = eg; x.fillRect(0, DESK_Y - 6, LW, 11);
+
+  // 手前の縁（板の厚み）── 机が「面」ではなく「物」に見える
+  const lip = x.createLinearGradient(0, LH - 34, 0, LH);
+  lip.addColorStop(0, 'rgba(0,0,0,0)');
+  lip.addColorStop(0.45, 'rgba(255,190,130,0.16)');
+  lip.addColorStop(0.52, 'rgba(255,210,160,0.05)');
+  lip.addColorStop(1, 'rgba(0,0,0,0.55)');
+  x.fillStyle = lip; x.fillRect(0, LH - 34, LW, 34);
+
+  // 木目（細い線を重ねて、板らしい密度を出す）
+  for (let i = 0; i < 16; i++) {
+    const yy = DESK_Y + 6 + Math.pow(rnd(), 1.35) * (LH - DESK_Y - 6);
+    x.strokeStyle = `rgba(255,206,150,${0.012 + rnd() * 0.030})`;
+    x.lineWidth = 0.5 + rnd() * 1.1;
+    x.beginPath(); x.moveTo(-10, yy);
+    for (let xx = 0; xx < LW + 10; xx += 22) x.lineTo(xx, yy + Math.sin(xx / (38 + i * 5) + i * 2.3) * 1.1);
+    x.stroke();
+  }
+
+  // 机の照り返し（水とコップの明かりが落ちる）
+  x.save(); x.globalCompositeOperation = 'lighter';
+  const rf = x.createLinearGradient(360, DESK_Y, 260, LH);
+  rf.addColorStop(0, 'rgba(255,190,110,0.12)'); rf.addColorStop(1, 'rgba(255,170,90,0)');
+  x.fillStyle = rf; x.fillRect(0, DESK_Y, LW, LH - DESK_Y);
+  // コップの水が机に落とす青い照り返し
+  const wg2 = x.createRadialGradient(296, DESK_Y + 8, 6, 296, DESK_Y + 8, 92);
+  wg2.addColorStop(0, 'rgba(150,220,245,0.22)');
+  wg2.addColorStop(0.5, 'rgba(120,200,232,0.09)');
+  wg2.addColorStop(1, 'rgba(110,190,225,0)');
+  x.fillStyle = wg2; x.beginPath();
+  x.ellipse(296, DESK_Y + 10, 96, 30, 0, 0, Math.PI * 2); x.fill();
+  x.restore();
+
+  // 誇り
+  x.save(); x.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 42; i++) {
+    x.fillStyle = `rgba(255,232,195,${0.05 + rnd() * 0.26})`;
+    x.beginPath(); x.arc(rnd() * LW, 60 + rnd() * 620, 0.5 + rnd() * 1.3, 0, Math.PI * 2); x.fill();
+  }
+  x.restore();
+  bgCanvas = c;
+}
+
+// ── 描画: コップ ──
+function drawGlass() {
+  const G = glassGeom();
+  const cx = G.cx, bot = G.bot, top = G.top;
+  const wTop = G.w, wBot = G.botR;
+
+  // 水
+  const surfY = G.surfY;
+  const wr = G.radAt(surfY);
+  const filled = st.ml > 0.2;
+  if (filled) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx - wr, surfY);
+    ctx.lineTo(cx - wBot, bot);
+    ctx.quadraticCurveTo(cx, bot + 10, cx + wBot, bot);
+    ctx.lineTo(cx + wr, surfY);
+    ctx.closePath();
+    ctx.clip();
+    const wg = ctx.createLinearGradient(0, surfY, 0, bot);
+    wg.addColorStop(0, 'rgba(176,232,248,0.78)');
+    wg.addColorStop(0.38, 'rgba(112,199,226,0.90)');
+    wg.addColorStop(1, 'rgba(30,92,120,0.97)');
+    ctx.fillStyle = wg; ctx.fillRect(cx - wTop - 20, surfY, (wTop + 20) * 2, bot - surfY + 20);
+    // 逆光の芯
+    ctx.globalCompositeOperation = 'lighter';
+    const gl = ctx.createRadialGradient(cx + wr * 0.25, surfY + 26, 4, cx + wr * 0.25, surfY + 26, wr * 1.9);
+    gl.addColorStop(0, 'rgba(255,246,218,0.30)');
+    gl.addColorStop(1, 'rgba(255,236,190,0)');
+    ctx.fillStyle = gl; ctx.fillRect(cx - wTop, surfY, wTop * 2, bot - surfY);
+    ctx.globalCompositeOperation = 'source-over';
+    // 底の沈み
+    const bd = ctx.createLinearGradient(0, bot - 52, 0, bot);
+    bd.addColorStop(0, 'rgba(8,44,64,0)'); bd.addColorStop(1, 'rgba(5,26,40,0.55)');
+    ctx.fillStyle = bd; ctx.fillRect(cx - wTop, bot - 52, wTop * 2, 60);
+    ctx.restore();
+
+    // 水面
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(cx, surfY, wr, G.rimR, 0, 0, Math.PI * 2);
+    const sg = ctx.createLinearGradient(cx - wr, surfY, cx + wr, surfY);
+    sg.addColorStop(0, 'rgba(214,250,255,0.70)');
+    sg.addColorStop(0.42, 'rgba(140,215,235,0.38)');
+    sg.addColorStop(1, 'rgba(232,255,255,0.78)');
+    ctx.fillStyle = sg; ctx.fill();
+    ctx.strokeStyle = 'rgba(240,255,255,0.82)'; ctx.lineWidth = 1.3; ctx.stroke();
+    ctx.restore();
+  }
+
+  // 目標線（コップの内側に、輪で描く）
+  const ly = lineY(G);
+  const lr = G.radAt(ly);
+  ctx.save();
+  ctx.beginPath(); ctx.ellipse(cx, ly, lr, G.rimR * 0.92, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,214,150,0.95)';
+  ctx.lineWidth = 2.2; ctx.setLineDash([7, 5]); ctx.stroke();
+  ctx.setLineDash([]);
+  // 線の目印（右端の小さな山）
+  ctx.fillStyle = 'rgba(255,214,150,0.95)';
+  ctx.beginPath();
+  ctx.moveTo(cx + lr - 1, ly - 5); ctx.lineTo(cx + lr + 8, ly); ctx.lineTo(cx + lr - 1, ly + 5);
+  ctx.closePath(); ctx.fill();
+  // 線の上に、うっすら光の帯を敷く（「ここまで」が一目で分かる）
+  ctx.globalCompositeOperation = 'lighter';
+  const aura = ctx.createLinearGradient(0, ly - 20, 0, ly + 20);
+  aura.addColorStop(0, 'rgba(255,206,140,0)');
+  aura.addColorStop(0.5, 'rgba(255,206,140,0.13)');
+  aura.addColorStop(1, 'rgba(255,206,140,0)');
+  ctx.fillStyle = aura;
+  ctx.beginPath(); ctx.ellipse(cx, ly, lr, 20, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // ガラス
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(cx - wTop, top);
+  ctx.lineTo(cx - wBot, bot);
+  ctx.quadraticCurveTo(cx, bot + 10, cx + wBot, bot);
+  ctx.lineTo(cx + wTop, top);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(190,225,240,0.05)'; ctx.fill();
+  ctx.clip();
+  // 縁の厚み
+  const eL = ctx.createLinearGradient(cx - wTop, 0, cx - wTop + 20, 0);
+  eL.addColorStop(0, 'rgba(235,250,255,0.40)'); eL.addColorStop(1, 'rgba(235,250,255,0)');
+  ctx.fillStyle = eL; ctx.fillRect(cx - wTop, top, 22, G.h);
+  const eR = ctx.createLinearGradient(cx + wTop, 0, cx + wTop - 16, 0);
+  eR.addColorStop(0, 'rgba(255,255,255,0.28)'); eR.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = eR; ctx.fillRect(cx + wTop - 20, top, 22, G.h);
+  // 窓の映り込み：輪郭に沿った柔らかい明るみ（線ではなく、面の明るさ）
+  const hL = ctx.createLinearGradient(cx - wTop, 0, cx - wTop * 0.45, 0);
+  hL.addColorStop(0, 'rgba(255,255,255,0.20)');
+  hL.addColorStop(0.55, 'rgba(255,255,255,0.06)');
+  hL.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hL;
+  ctx.fillRect(cx - wTop, top, wTop * 0.55, G.h);
+  const hR = ctx.createLinearGradient(cx + wTop, 0, cx + wTop * 0.55, 0);
+  hR.addColorStop(0, 'rgba(255,255,255,0.15)');
+  hR.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hR;
+  ctx.fillRect(cx + wTop * 0.45, top, wTop * 0.55, G.h);
+  ctx.restore();
+
+  // ── ガラスの輪郭：外側の淡いハロー → 明るい芯 → 内側の細い反射
+  //    「線」ではなく「断面の厚み」に見えるよう、3層で描く。
+  const outlinePath = (inset) => {
+    ctx.beginPath();
+    ctx.moveTo(cx - wTop + inset, top);
+    ctx.lineTo(cx - wBot + inset * 1.15, bot);
+    ctx.quadraticCurveTo(cx, bot + 10, cx + wBot - inset * 1.15, bot);
+    ctx.lineTo(cx + wTop - inset, top);
+    ctx.closePath();
+  };
+  ctx.save();
+  // 外周ハロー（光がにじむ）
+  outlinePath(0);
+  ctx.strokeStyle = 'rgba(168,220,240,0.30)'; ctx.lineWidth = 5.5;
+  ctx.stroke();
+  // 芯（明るい縁）
+  outlinePath(0.4);
+  ctx.strokeStyle = 'rgba(238,252,255,0.92)'; ctx.lineWidth = 1.7;
+  ctx.stroke();
+  // 内側の反射線（縁から 4px 内側）
+  outlinePath(4.2);
+  ctx.strokeStyle = 'rgba(212,244,255,0.30)'; ctx.lineWidth = 1.1;
+  ctx.stroke();
+  ctx.restore();
+
+  // 口（リム）── 前面と背面で明るさを変えると立体になる
+  ctx.save();
+  // 背面（奥）は暗め
+  ctx.beginPath(); ctx.ellipse(cx, top, wTop, G.rimR, 0, Math.PI, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(214,242,255,0.62)'; ctx.lineWidth = 2.0; ctx.stroke();
+  // 前面（手前）は明るい
+  ctx.beginPath(); ctx.ellipse(cx, top, wTop, G.rimR, 0, 0, Math.PI);
+  ctx.strokeStyle = 'rgba(248,255,255,0.95)'; ctx.lineWidth = 2.6; ctx.stroke();
+  // リムの厚み（楕円を二重に）
+  ctx.beginPath(); ctx.ellipse(cx, top - 2.2, wTop * 0.985, G.rimR * 0.96, 0, 0, Math.PI);
+  ctx.strokeStyle = 'rgba(255,255,255,0.34)'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.restore();
+
+  // 底の厚み（ガラスの分厚い底）
+  ctx.save();
+  ctx.beginPath(); ctx.ellipse(cx, bot + 1, wBot, G.rimR * 0.84, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(196,234,252,0.50)'; ctx.lineWidth = 3.4; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(cx, bot - 4, wBot * 0.97, G.rimR * 0.80, 0, 0, Math.PI);
+  ctx.strokeStyle = 'rgba(228,248,255,0.55)'; ctx.lineWidth = 1.4; ctx.stroke();
+  ctx.restore();
+
+  // ── 窓の映り込み：輪郭に沿った「形のある」ハイライト
+  //    まっすぐな帯ではなく、上下がすぼまったレンズ形にする。
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(cx - wTop, top);
+  ctx.lineTo(cx - wBot, bot);
+  ctx.quadraticCurveTo(cx, bot + 10, cx + wBot, bot);
+  ctx.lineTo(cx + wTop, top);
+  ctx.closePath();
+  ctx.clip();
+  ctx.globalCompositeOperation = 'lighter';
+  const spec = (sx, sw, a) => {
+    const g = ctx.createLinearGradient(sx - sw, 0, sx + sw, 0);
+    g.addColorStop(0, 'rgba(255,255,255,0)');
+    g.addColorStop(0.5, `rgba(255,255,255,${a})`);
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    // 上下がすぼまった帯
+    ctx.moveTo(sx - sw * 0.5, top + G.h * 0.06);
+    ctx.quadraticCurveTo(sx - sw * 0.16, top + G.h * 0.5, sx - sw * 0.62, bot - G.h * 0.05);
+    ctx.lineTo(sx + sw * 0.62, bot - G.h * 0.02);
+    ctx.quadraticCurveTo(sx + sw * 0.16, top + G.h * 0.5, sx + sw * 0.5, top + G.h * 0.06);
+    ctx.closePath(); ctx.fill();
+  };
+  spec(cx - wTop * 0.66, wTop * 0.30, 0.20);
+  spec(cx + wTop * 0.70, wTop * 0.20, 0.15);
+  ctx.restore();
+
+  // 水を通した明かり（グラスの中がほんのり光る）
+  if (st.ml > 1) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const wl = ctx.createLinearGradient(0, surfY, 0, bot);
+    wl.addColorStop(0, 'rgba(210,248,255,0.20)');
+    wl.addColorStop(0.5, 'rgba(150,225,250,0.07)');
+    wl.addColorStop(1, 'rgba(90,180,215,0)');
+    ctx.fillStyle = wl;
+    ctx.beginPath();
+    ctx.moveTo(cx - wr, surfY); ctx.lineTo(cx - wBot, bot);
+    ctx.quadraticCurveTo(cx, bot + 10, cx + wBot, bot);
+    ctx.lineTo(cx + wr, surfY);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  // コースティック（机の光の玉）
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const cau = ctx.createRadialGradient(cx + 46, DESK_Y + 30, 2, cx + 46, DESK_Y + 30, 88);
+  cau.addColorStop(0, 'rgba(255,228,175,0.30)');
+  cau.addColorStop(0.38, 'rgba(255,190,110,0.11)');
+  cau.addColorStop(1, 'rgba(255,170,80,0)');
+  ctx.fillStyle = cau;
+  ctx.beginPath(); ctx.ellipse(cx + 46, DESK_Y + 32, 92, 29, 0.06, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+// ── 描画: ピッチャー（左上で傾く）──
+// 形は「注ぎ口が左・胴が右」の1本の輪郭で持つ。
+// 傾けても中の水は水平のまま（＝重力が見える）なので、
+// 水だけは回転を打ち消した座標で描く。
+// ピッチャーは「注ぎ口が右」になるよう左右反転して描く（コップは右下にある）。
+// 変形の順序は  translate → rotate → scale(-1,1)。
+// これで注ぎ口（ローカル -92,-46）が、傾けると右へ下がってくる。
+const JUG = {
+  cx: 158, cy: 250,     // 胴の中心（論理座標）
+  rot0: 0.02,           // 待機時の傾き
+  rot1: 0.80,           // 注いでいる時の傾き
+  water: 0.46,          // 中の水の量（0..1）＝ 初期値
+  level: 0.46           // いま残っている量（描画に使う）
+};
+function jugOutline(x) {
+  x.beginPath();
+  x.moveTo(-92, -46);
+  x.quadraticCurveTo(-74, -60, -58, -52);
+  x.lineTo(30, -52);
+  x.quadraticCurveTo(50, -50, 50, -26);
+  x.quadraticCurveTo(56, 18, 36, 55);
+  x.quadraticCurveTo(0, 68, -36, 55);
+  x.quadraticCurveTo(-54, 16, -50, -18);
+  x.quadraticCurveTo(-50, -40, -62, -44);
+  x.quadraticCurveTo(-80, -40, -92, -46);
+  x.closePath();
+}
+function drawJug() {
+  const ang = JUG.rot0 + (JUG.rot1 - JUG.rot0) * st.tilt;
+  ctx.save();
+  ctx.translate(JUG.cx, JUG.cy);
+  ctx.rotate(ang);
+  ctx.scale(-1, 1);            // 左右反転（注ぎ口を右へ）
+
+  // 1) ガラスの地
+  ctx.save();
+  jugOutline(ctx);
+  const gBase = ctx.createLinearGradient(-92, 0, 56, 0);
+  gBase.addColorStop(0, 'rgba(198,232,244,0.16)');
+  gBase.addColorStop(0.30, 'rgba(148,200,220,0.05)');
+  gBase.addColorStop(0.72, 'rgba(120,180,205,0.10)');
+  gBase.addColorStop(1, 'rgba(214,242,252,0.24)');
+  ctx.fillStyle = gBase; ctx.fill();
+  ctx.restore();
+
+  // 2) 中の水（水平を保つ）
+  ctx.save();
+  jugOutline(ctx); ctx.clip();
+  // 反転→回転の逆順で打ち消すと、変換は「平行移動だけ」になる
+  // （＝水面を、傾きに関係なく水平に描ける）
+  ctx.scale(-1, 1);
+  ctx.rotate(-ang);
+  const surfY = 38 - JUG.level * 92;
+  ctx.beginPath(); ctx.rect(-320, surfY, 640, 420);
+  const wg = ctx.createLinearGradient(0, surfY, 0, surfY + 150);
+  const lv = Math.max(0.35, Math.min(1, JUG.level / 0.46));   // 1=満タン
+  wg.addColorStop(0, `rgba(196,240,252,${0.80 * lv + 0.12})`);
+  wg.addColorStop(0.45, `rgba(104,190,220,${0.88 * lv + 0.08})`);
+  wg.addColorStop(1, `rgba(28,96,126,${0.93 * lv + 0.05})`);
+  ctx.fillStyle = wg; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-320, surfY); ctx.lineTo(320, surfY);
+  ctx.strokeStyle = 'rgba(232,253,255,0.80)'; ctx.lineWidth = 2.1; ctx.stroke();
+  // 水面に映る窓の光
+  ctx.globalCompositeOperation = 'lighter';
+  const sr = ctx.createLinearGradient(-60, surfY, 60, surfY);
+  sr.addColorStop(0, 'rgba(255,236,200,0)');
+  sr.addColorStop(0.5, 'rgba(255,236,200,0.30)');
+  sr.addColorStop(1, 'rgba(255,236,200,0)');
+  ctx.fillStyle = sr; ctx.fillRect(-60, surfY - 1, 120, 2.4);
+  ctx.restore();
+
+  // 3) 輪郭（外ハロー → 明るい芯 → 内側の反射。コップと同じ文法）
+  ctx.save();
+  jugOutline(ctx);
+  ctx.strokeStyle = 'rgba(150,206,230,0.26)'; ctx.lineWidth = 6; ctx.stroke();
+  jugOutline(ctx);
+  ctx.strokeStyle = 'rgba(240,253,255,0.88)'; ctx.lineWidth = 1.8; ctx.stroke();
+  ctx.save();
+  ctx.scale(0.965, 0.965);
+  jugOutline(ctx);
+  ctx.strokeStyle = 'rgba(206,240,255,0.22)'; ctx.lineWidth = 1.3; ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+
+  // 4) 口のフチ
+  ctx.save();
+  ctx.beginPath(); ctx.ellipse(-16, -52, 46, 9, 0.02, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(238,252,255,0.85)'; ctx.lineWidth = 2.3; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(-16, -49, 46, 8.4, 0.02, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(180,220,238,0.42)'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.restore();
+
+  // 5) 取っ手
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(46, -30);
+  ctx.bezierCurveTo(92, -34, 96, 26, 44, 30);
+  ctx.strokeStyle = 'rgba(226,246,255,0.55)'; ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.stroke();
+  ctx.strokeStyle = 'rgba(150,196,216,0.28)'; ctx.lineWidth = 4.4; ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.20)'; ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.restore();
+
+  // 6) 窓の映り込み・底の厚み
+  ctx.save();
+  jugOutline(ctx); ctx.clip();
+  const hl1 = ctx.createLinearGradient(-46, 0, -28, 0);
+  hl1.addColorStop(0, 'rgba(255,255,255,0)');
+  hl1.addColorStop(0.5, 'rgba(255,255,255,0.26)');
+  hl1.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hl1;
+  ctx.beginPath(); ctx.moveTo(-46, -50); ctx.lineTo(-30, -50); ctx.lineTo(-24, 54); ctx.lineTo(-40, 54); ctx.closePath(); ctx.fill();
+  const hl2 = ctx.createLinearGradient(20, 0, 32, 0);
+  hl2.addColorStop(0, 'rgba(255,255,255,0)');
+  hl2.addColorStop(0.5, 'rgba(255,255,255,0.12)');
+  hl2.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = hl2;
+  ctx.beginPath(); ctx.moveTo(20, -46); ctx.lineTo(30, -46); ctx.lineTo(34, 48); ctx.lineTo(24, 48); ctx.closePath(); ctx.fill();
+  const bt = ctx.createLinearGradient(0, 40, 0, 62);
+  bt.addColorStop(0, 'rgba(200,240,255,0)'); bt.addColorStop(1, 'rgba(200,240,255,0.26)');
+  ctx.fillStyle = bt; ctx.fillRect(-40, 40, 80, 24);
+  ctx.restore();
+
+  ctx.restore();
+
+  // 注ぎ口の先（世界座標）を覚えておく：水流の始点に使う。
+  // 輪郭の注ぎ口は (-92,-46)。傾けても「先端」が水の出口になる。
+  const a = ang;
+  const lx = -92, ly = -46;      // ローカルの注ぎ口
+  const mx = -lx;                // 左右反転
+  st.tipX = JUG.cx + mx * Math.cos(a) - ly * Math.sin(a);
+  st.tipY = JUG.cy + mx * Math.sin(a) + ly * Math.cos(a);
+}
+
+// ── 描画: 水流 ──
+function streamPath() {
+  const G = glassGeom();
+  const x0 = st.tipX, y0 = st.tipY;
+  const x1 = G.cx - G.radAt(G.surfY) * 0.18;
+  const y1 = G.surfY - 3;
+  return { x0, y0, x1, y1 };
+}
+function drawStream() {
+  if (st.streamW <= 0.02) return;
+  const P = streamPath();
+  const w = st.streamW;
+  // 落ちるにつれて細くなる（重力で伸びる）
+  const midY = P.y0 + (P.y1 - P.y0) * 0.55;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(P.x0 - w * 0.62, P.y0);
+  ctx.bezierCurveTo(P.x0 - w * 0.56, P.y0 + 40, P.x1 - w * 0.40, midY, P.x1 - w * 0.34, P.y1);
+  ctx.lineTo(P.x1 + w * 0.34, P.y1);
+  ctx.bezierCurveTo(P.x1 + w * 0.40, midY, P.x0 + w * 0.56, P.y0 + 40, P.x0 + w * 0.62, P.y0);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(P.x0, P.y0, P.x1, P.y1);
+  g.addColorStop(0, 'rgba(216,248,255,0.74)');
+  g.addColorStop(0.55, 'rgba(150,220,238,0.64)');
+  g.addColorStop(1, 'rgba(206,246,255,0.86)');
+  ctx.fillStyle = g; ctx.fill();
+  // ふちの光
+  ctx.strokeStyle = 'rgba(255,255,255,0.30)'; ctx.lineWidth = 0.9; ctx.stroke();
+  // 芯
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  ctx.lineWidth = Math.max(0.8, w * 0.22);
+  ctx.beginPath();
+  ctx.moveTo(P.x0, P.y0 + 3);
+  ctx.bezierCurveTo(P.x0 + 2, P.y0 + 60, P.x1 - 2, midY, P.x1, P.y1);
+  ctx.stroke();
+  // 落下点のふくらみ
+  ctx.beginPath();
+  ctx.ellipse(P.x1, P.y1 - 1, w * 0.9, w * 0.5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(230,252,255,0.34)'; ctx.fill();
+  ctx.restore();
+}
+
+// ── 描画: しずく・しぶき・波紋 ──
+function drawDrops() {
+  for (const d of st.drops) {
+    const t = d.life / d.max;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, t * 2);
+    ctx.beginPath();
+    ctx.ellipse(d.x, d.y, d.r, d.r * 1.5, 0, 0, Math.PI * 2);
+    const g = ctx.createRadialGradient(d.x - d.r * 0.3, d.y - d.r * 0.4, 0, d.x, d.y, d.r * 1.5);
+    g.addColorStop(0, 'rgba(240,255,255,0.95)');
+    g.addColorStop(1, 'rgba(140,205,230,0.55)');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.restore();
+  }
+}
+function drawRipples() {
+  const G = glassGeom();
+  for (const r of st.ripples) {
+    const t = r.life / r.max;
+    ctx.save();
+    ctx.globalAlpha = t * 0.55;
+    ctx.strokeStyle = 'rgba(230,255,255,0.9)';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.ellipse(G.cx + r.dx, G.surfY, r.rad, r.rad * G.rimR / G.w * 1.4, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// ── 更新 ──
+function update(dt) {
+  st.t += dt;
+  st.shake *= Math.exp(-dt * 9);
+  if (st.spilled > 0) st.spillT = (st.spillT || 0) + dt;
+  // ピッチャーの残量: コップに注いだ分だけ減る（底をついたら止まる）
+  const gNow = STAGES[st.stage];
+  JUG.level += ((JUG.water - Math.min(JUG.water, st.ml / gNow.ml * JUG.water)) - JUG.level) * Math.min(1, dt * 9);
+  if (st.phase === 'ready' || st.phase === 'title') JUG.level += (JUG.water - JUG.level) * Math.min(1, dt * 6);
+  st.flash *= Math.exp(-dt * 3.4);
+
+  if (st.phase === 'pouring' || st.phase === 'settle') {
+    // 注ぐ
+    if (st.phase === 'pouring' && st.pouring) {
+      const speed = STAGES[st.stage].speed;
+      st.ml += speed * dt;
+      st.targetTilt = 1;
+      // 水面の波紋
+      if (Math.random() < dt * 14) {
+        st.ripples.push({ dx: (Math.random() - 0.5) * 40, rad: 4, life: 0.55, max: 0.55 });
+      }
+      if (st.ml >= MAX_ML) overflow();
+    } else if (st.phase === 'pouring') {
+      st.targetTilt = 0.12;
+    }
+    // しずく（離したあと）
+    if (st.phase === 'settle' && st.dripLeft > 0) {
+      st.lastDropT += dt;
+      if (st.lastDropT > 0.34) {
+        st.lastDropT = 0;
+        st.dripLeft--;
+        addDrop();
+        st.ml += 0.9;
+        tone(880 + Math.random() * 240, 0.07, 0.05, 'sine', -160);
+        if (st.ml >= MAX_ML) overflow();
+      }
+      // 最後のしずくが落ちてから、少しだけ「間」を置いて採点する
+      if (st.dripLeft <= 0 && !st.settleArmed) {
+        st.settleArmed = true; st.settleWait = 0;
+        const G = glassGeom();
+        st.camTargetZ = 1.30;
+        st.camTargetF = { x: G.cx, y: lineY(G) + 10 };
+      }
+    }
+    if (st.phase === 'settle') {
+      st.settleT += dt;
+      if (st.settleArmed) {
+        st.settleWait += dt;
+        // 水面の揺れが落ち着くのを待つ（0.55秒）
+        if (st.settleWait > 0.55) finishSettle();
+      } else if (st.settleT > 4.0) {
+        finishSettle();          // 念のための保険
+      }
+    }
+  }
+  // カメラ（なめらかに寄る／戻る）
+  if (st.camTargetZ) {
+    const kc = 1 - Math.exp(-dt * 4.5);
+    st.camZ = (st.camZ || 1) + (st.camTargetZ - (st.camZ || 1)) * kc;
+    const tf = st.camTargetF || st.camFocus;
+    st.camFocus = st.camFocus || { x: tf.x, y: tf.y };
+    st.camFocus.x += (tf.x - st.camFocus.x) * kc;
+    st.camFocus.y += (tf.y - st.camFocus.y) * kc;
+  } else if ((st.camZ || 1) !== 1) {
+    st.camZ += (1 - st.camZ) * (1 - Math.exp(-dt * 6));
+    if (Math.abs(st.camZ - 1) < 0.002) st.camZ = 1;
+  }
+
+  // 傾き（なめらか）
+  const k = 1 - Math.exp(-dt * 9);
+  st.tilt += (st.targetTilt - st.tilt) * k;
+
+  // 水流の太さ
+  const wantW = (st.phase === 'pouring' && st.pouring) ? 9 : 0;
+  st.streamW += (wantW - st.streamW) * (1 - Math.exp(-dt * 16));
+
+  // しずく
+  for (const d of st.drops) {
+    d.vy += 900 * dt;
+    d.y += d.vy * dt;
+    d.life -= dt;
+    if (d.y > d.floor && d.vy > 0) { d.life = 0; splash(d.x, d.floor); }
+  }
+  st.drops = st.drops.filter(d => d.life > 0);
+
+  // しぶき
+  for (const s of st.splashes) { s.vy += 1400 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt; }
+  st.splashes = st.splashes.filter(s => s.life > 0);
+  // 縁を伝う水は重力で加速しながら外壁を落ちる
+  for (const s of st.sheets) { s.vy += 520 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.vx *= 0.985; s.life -= dt; }
+  st.sheets = st.sheets.filter(s => s.life > 0 && s.y < DESK_Y + 26);
+
+  // 波紋
+  for (const r of st.ripples) { r.life -= dt; r.rad += 40 * dt; }
+  st.ripples = st.ripples.filter(r => r.life > 0);
+
+  // HUD
+  if (st.phase === 'pouring' || st.phase === 'settle') updateGauge();
+}
+function addDrop() {
+  const P = streamPath();
+  st.drops.push({ x: P.x0, y: P.y0, vy: 30, r: 2.6 + Math.random() * 0.8, life: 1.6, max: 1.6, floor: glassGeom().surfY });
+}
+function splash(x, y) {
+  for (let i = 0; i < 4; i++) {
+    st.splashes.push({ x, y, vx: (Math.random() - 0.5) * 60, vy: -20 - Math.random() * 50, life: 0.3 + Math.random() * 0.2 });
+  }
+  splashSound(0.6);
+}
+
+// ── ゲーム進行 ──
+function startStage(i) {
+  st.stage = Math.max(0, Math.min(STAGES.length - 1, i));
+  st.ml = 0; st.pouring = false; st.drops = []; st.ripples = []; st.splashes = []; st.sheets = [];
+  st.camZ = 1; st.camTargetZ = 0; st.camFocus = null; st.camTargetF = null;
+  st.spilled = 0; st.spillT = 0; st.shake = 0; st.tilt = 0; st.targetTilt = 0; st.streamW = 0;
+  st.phase = 'ready'; st.settleT = 0; st.dripLeft = 0; st.lastDropT = 0;
+  $('titleCard').classList.add('hide');
+  $('menuCard').classList.add('hide');
+  $('resultCard').classList.add('hide');
+  $('ctl').classList.remove('hide');
+  $('gauge').classList.remove('hide');
+  updateHud(); updateGauge(); draw();
+  toast('線ぴったりに注いでください');
+  $('hint').classList.add('on');
+  setTimeout(() => $('hint').classList.remove('on'), 2600);
+}
+function startPour() {
+  if (st.phase !== 'ready' && st.phase !== 'pouring') return;
+  if (st.phase === 'ready') { st.phase = 'pouring'; st.tilt = 0; }
+  st.pouring = true;
+  audioInit(); streamStart();
+  $('pourBtn').classList.add('on');
+  $('hint').classList.remove('on');
+}
+function endPour() {
+  if (st.phase !== 'pouring' || !st.pouring) return;
+  st.pouring = false;
+  streamStop();
+  $('pourBtn').classList.remove('on');
+  // ここから「しずく」の時間。離した瞬間には終わらない。
+  st.phase = 'settle';
+  st.settleT = 0; st.dripLeft = STAGES[st.stage].drip; st.lastDropT = 0.14;
+  st.settleArmed = false; st.settleWait = 0;
+  // 最後のひとしずくを落とす
+  addDrop();
+  st.ml += 1.0;
+  setTimeout(() => { if (st.phase === 'settle') toast('…しずくが落ちています'); }, 120);
+}
+function finishSettle() {
+  if (st.phase !== 'settle') return;
+  const g = STAGES[st.stage];
+  const diff = st.ml - g.ml;
+  st.phase = 'result';
+  const good = Math.abs(diff) <= (g.tol || TOL);
+  if (good) {
+    st.flash = 0.85; st.flashColor = '125,214,168';
+    tone(660, 0.12, 0.14, 'sine', 220);
+    setTimeout(() => tone(880, 0.16, 0.12, 'sine', 180), 90);
+    setTimeout(() => tone(1320, 0.26, 0.10, 'sine', 120), 190);
+    if (!st.clears.includes(st.stage)) {
+      st.clears.push(st.stage);
+      try { localStorage.setItem('sotto.clears.v1', JSON.stringify(st.clears)); } catch (e) {}
+    }
+    const d = Math.abs(diff);
+    if (d < st.best || st.best === 0) {
+      st.best = d;
+      try { localStorage.setItem('sotto.best.v1', String(st.best)); } catch (e) {}
+    }
+  } else {
+    st.flash = 0.7; st.flashColor = '255,150,110';
+    st.shake = 10;
+    tone(180, 0.22, 0.12, 'sine', -60);
+  }
+  showResult(diff, good);
+  updateHud();
+}
+function overflow() {
+  st.phase = 'over';
+  st.pouring = false; streamStop();
+  st.spilled = st.ml - STAGES[st.stage].ml;
+  st.shake = 18; st.flash = 1.0; st.flashColor = '255,130,96';
+  st.spillT = 0;                 // こぼれ落ちる水の進行
+  $('pourBtn').classList.remove('on');
+  // こぼれる音（低い音＋水）
+  tone(120, 0.5, 0.16, 'sine', -50);
+  setTimeout(() => tone(96, 0.6, 0.10, 'sine', -30), 90);
+  // 縁の外側を伝って落ちる水（シート）＋ はね
+  const G = glassGeom();
+  st.sheets = [];
+  for (let i = 0; i < 7; i++) {
+    const side = i < 4 ? -1 : 1;
+    st.sheets.push({
+      x: G.cx + side * (G.w * (0.72 + Math.random() * 0.34)),
+      y: G.top + 4 + Math.random() * 8,
+      vx: side * (6 + Math.random() * 16),
+      vy: 40 + Math.random() * 50,
+      w: 0.9 + Math.random() * 1.5,
+      len: 10 + Math.random() * 22,
+      life: 0.85 + Math.random() * 0.5
+    });
+  }
+  for (let i = 0; i < 14; i++) {
+    st.splashes.push({
+      x: G.cx + (Math.random() - 0.5) * G.w * 1.9,
+      y: G.top + 8,
+      vx: (Math.random() - 0.5) * 120,
+      vy: -40 - Math.random() * 90,
+      life: 0.45 + Math.random() * 0.45, big: true
+    });
+  }
+  setTimeout(() => {
+    st.phase = 'result';
+    st.totalLeak += 1;
+    showResult(st.ml - STAGES[st.stage].ml, false, true);
+    updateHud();
+  }, 780);
+}
+function showResult(diff, good, overflowed) {
+  const g = STAGES[st.stage];
+  $('resultCard').classList.remove('hide');
+  const mark = $('resultMark');
+  const num = $('resultDiff');
+  const line = $('resultLine');
+  num.textContent = (diff > 0 ? '+' : diff < 0 ? '−' : '±') + Math.abs(diff).toFixed(1);
+  if (overflowed) {
+    mark.textContent = 'あふれた'; mark.className = 'mark ng';
+    line.textContent = `${g.ml}ml の線を超えて、机の上まで来てしまいました。`;
+  } else if (good) {
+    mark.textContent = 'ぴったり'; mark.className = 'mark good';
+    line.textContent = Math.abs(diff) < 1 ? 'ほぼ完璧です。' : '線のそばで止まれました。';
+  } else if (diff > 0) {
+    mark.textContent = '入れすぎ'; mark.className = 'mark ng';
+    line.textContent = `${diff.toFixed(1)}ml 多かった。もっと早く離しても、しずくは落ちます。`;
+  } else {
+    mark.textContent = 'たりない'; mark.className = 'mark ng';
+    line.textContent = `${(-diff).toFixed(1)}ml 足りませんでした。`;
+  }
+  $('statStage').textContent = st.clears.length;
+  $('statBest').textContent = st.best ? st.best.toFixed(1) : '—';
+  $('statLeak').textContent = st.totalLeak;
+  const last = st.stage >= STAGES.length - 1;
+  $('nextBtn').classList.toggle('hide', !good || last);
+  $('retryBtn').textContent = good && last ? 'もう一度' : 'もう一度';
+}
+function updateHud() {
+  const g = STAGES[st.stage];
+  $('stageName').textContent = `${st.stage + 1} / ${STAGES.length}　${g.name}`;
+  $('targetText').textContent = g.ml + 'ml';
+}
+function updateSoundIcon() {
+  const on = !AC.muted;
+  document.querySelectorAll('.snd-wave').forEach(e => e.style.display = on ? '' : 'none');
+  const x = document.querySelector('.snd-x');
+  if (x) x.style.display = on ? 'none' : '';
+  const b = $('soundBtn');
+  if (b) b.setAttribute('aria-label', on ? '音を消す' : '音を出す');
+}
+
+function updateGauge() {
+  const g = STAGES[st.stage];
+  // 許容ゾーンの幅（±tol ml を、メーター幅 40ml に対して）
+  const zone = ((g.tol || TOL) / 40) * 96;
+  $('gzone').style.left = (50 - zone / 2) + '%';
+  $('gzone').style.width = zone + '%';
+  const d = st.ml - g.ml;
+  $('gauge').dataset.ml = st.ml.toFixed(2);      // 実量（テスト・デバッグ用）
+  $('gauge').dataset.phase = st.phase;
+  // 主表示は「あと何ml」。超えたら「オーバー」に切り替える
+  const tolNow = g.tol || TOL;
+  if (Math.abs(d) <= tolNow) {
+    $('gLeft').textContent = 'ぴったり';
+    $('nowMl').innerHTML = (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(1) + '<small style="font-size:10px">ml</small>';
+  } else if (d < 0) {
+    $('gLeft').textContent = 'あと';
+    $('nowMl').innerHTML = Math.abs(d).toFixed(1) + '<small style="font-size:10px">ml</small>';
+  } else {
+    $('gLeft').textContent = 'オーバー';
+    $('nowMl').innerHTML = '+' + d.toFixed(1) + '<small style="font-size:10px">ml</small>';
+  }
+  const span = 40;             // メーターの範囲(ml)
+  const px = Math.max(-1, Math.min(1, d / span));
+  $('gfill').style.left = `calc(50% + ${px * 48}%)`;
+  const tol = g.tol || TOL;
+  const near = Math.abs(d) <= tol;
+  $('gfill').style.background = near ? '#7dd6a8' : (d > 0 ? '#ff8f6b' : '#ffd79a');
+  $('nowMl').style.color = near ? '#7dd6a8' : (d > 0 ? '#ff8f6b' : 'var(--ink)');
+}
+
+// ── 全体描画 ──
+function draw() {
+  if (!W) return;
+  if (!bgCanvas) buildBG();
+  ctx.save();
+  // 画面の揺れ
+  if (st.shake > 0.2) {
+    ctx.translate((Math.random() - 0.5) * st.shake, (Math.random() - 0.5) * st.shake);
+  }
+  ctx.clearRect(-20, -20, W + 40, H + 40);
+  // レターボックスの継ぎ目を消す（シーンの端の色で全面を埋める）
+  if (oy > 0.5) {
+    const fb = ctx.createLinearGradient(0, 0, 0, H);
+    fb.addColorStop(0, '#0a0e13'); fb.addColorStop(1, '#080605');
+    ctx.fillStyle = fb; ctx.fillRect(0, 0, W, H);
+  }
+  // 盤面（論理座標）
+  ctx.save();
+  // カメラ: 採点時に水面へ寄る（結果が「見える」）
+  const z = st.camZ || 1;
+  const f = st.camFocus || { x: LW / 2, y: LH * 0.6 };
+  ctx.translate(ox, oy); ctx.scale(S, S);
+  if (z !== 1) {
+    ctx.translate(f.x, f.y); ctx.scale(z, z); ctx.translate(-f.x, -f.y);
+  }
+  ctx.drawImage(bgCanvas, 0, 0);
+  // 机の上の水たまり（こぼした時）: コップの底から外へ広がる
+  if (st.spilled > 0) {
+    const G = glassGeom();
+    const k = Math.min(1, (st.spillT || 0) / 0.9);
+    const R = 26 + k * 118;
+    ctx.save();
+    // 水たまり本体（少しだけ明るく、濡れた木の色）
+    const p = ctx.createRadialGradient(G.cx, G.bot + 10, 2, G.cx, G.bot + 10, R);
+    p.addColorStop(0, 'rgba(168,226,243,0.46)');
+    p.addColorStop(0.55, 'rgba(140,205,230,0.28)');
+    p.addColorStop(1, 'rgba(120,190,220,0)');
+    ctx.fillStyle = p;
+    ctx.beginPath(); ctx.ellipse(G.cx, G.bot + 12, R, R * 0.30, 0, 0, Math.PI * 2); ctx.fill();
+    // 縁の光
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(220,250,255,0.20)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.ellipse(G.cx, G.bot + 12, R * 0.94, R * 0.28, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  drawGlass();
+  // 外壁を伝う水（コップの手前＝レンズの外側に見える）
+  for (const sh of st.sheets) {
+    ctx.save();
+    const a = Math.max(0, Math.min(1, sh.life * 2.2));
+    ctx.globalAlpha = a * 0.9;
+    const grad = ctx.createLinearGradient(0, sh.y - sh.len, 0, sh.y + 4);
+    grad.addColorStop(0, 'rgba(200,242,255,0.10)');
+    grad.addColorStop(0.35, 'rgba(206,244,255,0.72)');
+    grad.addColorStop(1, 'rgba(150,220,245,0.30)');
+    ctx.fillStyle = grad;
+    const hw = sh.w * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(sh.x - hw, sh.y - sh.len);
+    ctx.quadraticCurveTo(sh.x - hw * 1.25, sh.y - sh.len * 0.35, sh.x, sh.y + 3);
+    ctx.quadraticCurveTo(sh.x + hw * 1.25, sh.y - sh.len * 0.35, sh.x + hw, sh.y - sh.len);
+    ctx.closePath(); ctx.fill();
+    // 芯の光
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = a * 0.5;
+    ctx.fillStyle = 'rgba(240,255,255,0.9)';
+    ctx.beginPath();
+    ctx.ellipse(sh.x - hw * 0.2, sh.y - sh.len * 0.5, hw * 0.30, sh.len * 0.42, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  drawJug();
+  drawStream();
+  drawDrops();
+  drawRipples();
+  // しぶき
+  for (const s of st.splashes) {
+    ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, s.life * 2.4));
+    ctx.fillStyle = s.big ? 'rgba(210,245,255,0.80)' : 'rgba(220,250,255,0.85)';
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.big ? 1.7 : 1.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // ── 仕上げ：ビネット（周辺を落として視線を中央へ）
+  ctx.save();
+  const vg = ctx.createRadialGradient(W * 0.5, H * 0.46, Math.min(W, H) * 0.30,
+                                     W * 0.5, H * 0.46, Math.max(W, H) * 0.78);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(0.62, 'rgba(0,0,0,0.16)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.62)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+
+  // ── 仕上げ：フィルムグレイン（vectorっぽさを消す）
+  ctx.save();
+  ctx.globalAlpha = 0.045;
+  ctx.globalCompositeOperation = 'overlay';
+  const gr = grainCanvas();
+  if (gr) {
+    const pat = ctx.createPattern(gr, 'repeat');
+    if (pat) {
+      const ox0 = (performance.now() * 0.02) % 128;   // わずかに動かして「フィルム」に
+      ctx.translate(-ox0, 0);
+      ctx.fillStyle = pat;
+      ctx.fillRect(0, 0, W + 128, H);
+    }
+  }
+  ctx.restore();
+
+  // 画面全体のフラッシュ
+  if (st.flash > 0.01) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const fg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.75);
+    fg.addColorStop(0, `rgba(${st.flashColor},${0.16 * st.flash})`);
+    fg.addColorStop(1, `rgba(${st.flashColor},0)`);
+    ctx.fillStyle = fg; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ── ループ ──
+let last = 0, raf = 0;
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
+  last = now;
+  update(dt);
+  draw();
+  raf = requestAnimationFrame(loop);
+}
+
+// ── 操作 ──
+function bind() {
+  const btn = $('pourBtn');
+  const down = (e) => { e.preventDefault(); startPour(); };
+  const up = (e) => { if (e) e.preventDefault(); endPour(); };
+  btn.addEventListener('pointerdown', down);
+  btn.addEventListener('pointerup', up);
+  btn.addEventListener('pointercancel', up);
+  btn.addEventListener('pointerleave', up);
+  // 画面のどこを押しても注ぐ（ボタンの外でも）
+  cv.addEventListener('pointerdown', (e) => {
+    if (st.phase === 'ready' || st.phase === 'pouring') { e.preventDefault(); startPour(); }
+  });
+  cv.addEventListener('pointerup', endPour);
+  cv.addEventListener('pointercancel', endPour);
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && !e.repeat) { e.preventDefault(); startPour(); }
+  });
+  window.addEventListener('keyup', (e) => { if (e.code === 'Space') { e.preventDefault(); endPour(); } });
+  window.addEventListener('resize', () => resize());
+
+  $('playBtn').onclick = () => { audioInit(); startStage(0); };
+  $('allStagesBtn').onclick = () => { renderStages(); $('titleCard').classList.add('hide'); $('menuCard').classList.remove('hide'); };
+  $('closeMenuBtn').onclick = () => {
+    $('menuCard').classList.add('hide');
+    if (st.phase === 'title') $('titleCard').classList.remove('hide');
+    else { $('ctl').classList.remove('hide'); $('gauge').classList.remove('hide'); draw(); }
+  };
+  $('menuBtn').onclick = () => { renderStages(); $('menuCard').classList.remove('hide'); };
+  $('retryBtn').onclick = () => { $('resultCard').classList.add('hide'); startStage(st.stage); };
+  $('nextBtn').onclick = () => { $('resultCard').classList.add('hide'); startStage(st.stage + 1); };
+  $('soundBtn').onclick = () => {
+    AC.muted = !AC.muted;
+    updateSoundIcon();
+    if (AC.master) AC.master.gain.value = AC.muted ? 0 : 0.55;
+    if (AC.muted) streamStop();
+  };
+  updateSoundIcon();
+  // #g3bar は後から差し込まれることがある
+  const watch = () => {
+    const bar = document.getElementById('g3bar');
+    if (!bar) return;
+    const apply = () => resize();
+    apply();
+    if (window.ResizeObserver) { try { new ResizeObserver(apply).observe(bar); return; } catch (e) {} }
+    window.addEventListener('load', apply);
+    setTimeout(apply, 300);
+  };
+  watch();
+  document.addEventListener('DOMContentLoaded', watch);
+}
+function renderStages() {
+  const wrap = $('stageList');
+  wrap.innerHTML = '';
+  STAGES.forEach((s, i) => {
+    // 前のステージをクリアするまで開かない（＝順番に覚えていく）
+    const unlocked = i === 0 || st.clears.includes(i - 1) || st.clears.includes(i);
+    const b = document.createElement('button');
+    b.className = 'stageBtn';
+    b.dataset.clear = st.clears.includes(i) ? '1' : '0';
+    b.dataset.locked = unlocked ? '0' : '1';
+    b.innerHTML = unlocked
+      ? `${i + 1}　${s.ml}ml<small>${s.name}</small>`
+      : `${i + 1}　—<small>前のコップをクリア</small>`;
+    b.disabled = !unlocked;
+    b.onclick = () => { if (unlocked) startStage(i); };
+    wrap.appendChild(b);
+  });
+}
+let toastT = 0;
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg; el.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('on'), 1600);
+}
+
+// ── 起動 ──
+function boot() {
+  try { st.clears = JSON.parse(localStorage.getItem('sotto.clears.v1') || '[]'); } catch (e) { st.clears = []; }
+  try { st.best = Number(localStorage.getItem('sotto.best.v1') || 0); } catch (e) { st.best = 0; }
+  buildBG();
+  resize();
+  bind();
+  requestAnimationFrame((t) => { last = t; loop(t); });
+}
+boot();
+</script>
+</body>
+</html>
