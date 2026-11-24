@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>10秒、ぴったり。</title>
-<meta name="description" content="時計を見ずに、からだで数えて10秒をぴったりで止めるゲーム。">
+<meta name="description" content="時計を見ずに、からだで数えてぴったりで止めるゲーム。数えている最中に妨害が入ります。">
 <meta name="theme-color" content="#0e1117">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230e1117'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%23ffce54' stroke-width='4'/%3E%3Cpath d='M32 18v14l10 6' stroke='%23ffce54' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
@@ -16,7 +16,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0e1117;color:#eef2f7;
 .hide{display:none!important}
 button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer}
 
-.card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(88vw,520px);background:#141a24ee;border:1px solid #ffffff22;border-radius:20px;padding:26px 22px;text-align:center;box-shadow:0 18px 50px #0008;backdrop-filter:blur(6px)}
+.card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(88vw,520px);background:#141a24ee;border:1px solid #ffffff22;border-radius:20px;padding:26px 22px;text-align:center;box-shadow:0 18px 50px #0008;backdrop-filter:blur(6px);max-height:86vh;overflow:auto}
 .card h1{margin:0 0 6px;font-size:clamp(26px,8vw,40px);letter-spacing:.02em}
 .card .sub{margin:0 0 18px;color:#a7b6c6;font-size:clamp(13px,3.6vw,15px);line-height:1.6}
 .big{display:block;width:100%;margin:8px 0 0;padding:16px;border-radius:14px;background:#ffce54;color:#131820;font-weight:800;font-size:clamp(17px,4.6vw,20px)}
@@ -25,20 +25,49 @@ button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer
 .best{margin:16px 0 0;color:#8ea2b4;font-size:12.5px;line-height:1.6}
 .best b{color:#ffce54;font-variant-numeric:tabular-nums}
 
+/* タイトルの「妨害」説明 */
+.hazlist{margin:0 0 16px;padding:0;list-style:none;text-align:left;font-size:clamp(12px,3.3vw,13.5px);line-height:1.55;color:#a9b8c6;display:grid;gap:6px}
+.hazlist li{display:flex;gap:8px;align-items:flex-start;background:#ffffff08;border:1px solid #ffffff14;border-radius:10px;padding:8px 10px}
+.hazlist .hico{flex:0 0 auto;width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:12px;background:#ffce5422;color:#ffce54}
+.hazlist b{color:#eef2f7}
+
 #hud{position:absolute;inset:0;pointer-events:none}
-#hud .top{position:absolute;top:calc(14px + env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;font-size:13px;color:#9fb0c0}
+#hud button{pointer-events:auto}
+#hud .top{position:absolute;top:calc(12px + env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:#9fb0c0}
 #hud .top b{color:#eef2f7;font-variant-numeric:tabular-nums}
-#count{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%);font-size:clamp(72px,24vw,150px);font-weight:900;line-height:1;color:#ffce54;text-shadow:0 6px 0 #0006;opacity:0;transition:opacity .12s,transform .12s}
+#scoreBar{position:absolute;top:calc(44px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;align-items:baseline;gap:6px;font-variant-numeric:tabular-nums}
+#scoreNum{font-size:clamp(26px,7.4vw,34px);font-weight:900;color:#ffce54;letter-spacing:.01em}
+#scoreUnit{font-size:12px;color:#8ea2b4;font-weight:700}
+#comboPill{margin-left:8px;padding:2px 9px;border-radius:99px;background:#ffce5420;border:1px solid #ffce5455;color:#ffce54;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums;opacity:0;transition:opacity .18s,transform .18s}
+#comboPill.on{opacity:1}
+#comboPill.pop{transform:scale(1.22)}
+
+#count{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%);font-size:clamp(72px,24vw,150px);font-weight:900;line-height:1;color:#ffce54;text-shadow:0 6px 0 #0006;opacity:0;transition:opacity .12s,transform .12s;white-space:nowrap}
 #count.on{opacity:1}
-#stopBtn{position:absolute;left:50%;bottom:max(96px,calc(82px + env(safe-area-inset-bottom)));transform:translateX(-50%);width:min(54vw,210px);height:min(54vw,210px);border-radius:50%;background:radial-gradient(circle at 50% 38%,#ff7d6b,#e2473a 62%,#b02e25);color:#fff;font-size:clamp(20px,5.4vw,24px);font-weight:900;letter-spacing:.06em;box-shadow:0 10px 0 #0006,inset 0 -6px 0 #00000028;display:flex;align-items:center;justify-content:center}
+#count.praise{color:#7ff0a8}
+
+/* 妨害の予告／表示 */
+#hazardBanner{position:absolute;left:50%;top:calc(96px + env(safe-area-inset-top));transform:translate(-50%,-8px);padding:7px 16px;border-radius:99px;background:#ff6b57;color:#1a0b08;font-weight:900;font-size:clamp(13px,3.7vw,15px);letter-spacing:.02em;opacity:0;transition:opacity .16s,transform .16s;white-space:nowrap;box-shadow:0 6px 18px #ff6b5755}
+#hazardBanner.on{opacity:1;transform:translate(-50%,0)}
+#hazardActive{position:absolute;left:50%;top:calc(96px + env(safe-area-inset-top));transform:translateX(-50%);padding:6px 14px;border-radius:99px;background:#0b0f15dd;border:1px solid #ff6b5788;color:#ff9a8b;font-weight:800;font-size:clamp(12px,3.5vw,14px);opacity:0;transition:opacity .16s;white-space:nowrap}
+#hazardActive.on{opacity:1}
+
+#tapLayer{position:absolute;inset:0;pointer-events:none}
+.tapDot{position:absolute;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;background:#ffce54;color:#131820;display:grid;place-items:center;font-weight:900;font-size:22px;font-variant-numeric:tabular-nums;box-shadow:0 0 0 0 #ffce5499;animation:tapPulse 1s infinite;pointer-events:auto;cursor:pointer}
+@keyframes tapPulse{0%{box-shadow:0 0 0 0 #ffce5499}70%{box-shadow:0 0 0 18px #ffce5400}100%{box-shadow:0 0 0 0 #ffce5400}}
+
+#stopBtn{position:absolute;left:50%;bottom:max(96px,calc(82px + env(safe-area-inset-bottom) + var(--barH,0px)));transform:translateX(-50%);width:min(54vw,210px);height:min(54vw,210px);border-radius:50%;background:radial-gradient(circle at 50% 38%,#ff7d6b,#e2473a 62%,#b02e25);color:#fff;font-size:clamp(20px,5.4vw,24px);font-weight:900;letter-spacing:.06em;box-shadow:0 10px 0 #0006,inset 0 -6px 0 #00000028;display:flex;align-items:center;justify-content:center}
 #stopBtn:active{transform:translateX(-50%) scale(.96);box-shadow:0 4px 0 #0006,inset 0 -4px 0 #00000028}
 #stopBtn:disabled{filter:grayscale(.5) brightness(.8)}
-#resultVerdict{font-size:clamp(28px,9vw,44px);font-weight:900;color:#ffce54;margin:0 0 4px}
-#resultDiff{font-size:clamp(22px,7vw,32px);font-weight:900;font-variant-numeric:tabular-nums;margin:0 0 14px}
-#resultDiff.good{color:#7ff0a8}#resultDiff.bad{color:#ff9a8b}
-.rowlist{margin:0 0 16px;padding:0;list-style:none;font-size:13.5px;color:#a9b8c6}
-.rowlist li{display:flex;justify-content:space-between;gap:10px;padding:7px 2px;border-bottom:1px solid #ffffff14}
-.rowlist li b{color:#eef2f7;font-variant-numeric:tabular-nums}
+
+#resultVerdict{font-size:clamp(28px,9vw,44px);font-weight:900;color:#ffce54;margin:0 0 2px}
+#resultDiff{font-size:clamp(15px,4.4vw,18px);font-weight:800;color:#a9b8c6;margin:0 0 12px;font-variant-numeric:tabular-nums}
+#resultScore{font-size:clamp(34px,11vw,52px);font-weight:900;color:#7ff0a8;font-variant-numeric:tabular-nums;line-height:1.05;margin:0 0 2px}
+#resultScore small{font-size:13px;color:#8ea2b4;font-weight:700;margin-left:4px}
+.rowlist{margin:10px 0 14px;padding:0;list-style:none;font-size:13px;color:#a9b8c6}
+.rowlist li{display:flex;justify-content:space-between;gap:10px;padding:6px 2px;border-bottom:1px solid #ffffff14;align-items:baseline}
+.rowlist li b{color:#eef2f7;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rowlist .hztag{display:inline-block;margin-left:5px;padding:0 5px;border-radius:5px;background:#ff6b5722;color:#ff9a8b;font-size:10.5px;font-weight:700;vertical-align:1px}
 #titleCard .titleBig{font-size:clamp(30px,9vw,46px);font-weight:900;letter-spacing:.02em;margin:0 0 10px;color:#ffce54}
 footer{position:absolute;left:0;right:0;bottom:calc(10px + env(safe-area-inset-bottom));text-align:center;font-size:11px;color:#5f7182}
 footer a{color:#7f93a8}
@@ -51,22 +80,42 @@ footer a{color:#7f93a8}
   <section id="titleCard" class="card">
     <p class="titleBig">10秒、ぴったり。</p>
     <p class="sub">時計はかくれています。<br>からだの感覚だけで数えて、ぴったりのところで止めてください。</p>
+    <ul class="hazlist">
+      <li><span class="hico">~</span><span><b>5回戦。</b>数えている最中に<b>妨害</b>が入ります。妨害に動じず、数え続けられるかが勝負。</span></li>
+      <li><span class="hico">?</span><span><b>ゆらし／かぞえ直し／ささやき／暗転／まちがい時計／ながらタップ</b></span></li>
+      <li><span class="hico">o</span><span>ぴったりなら<b>コンボ</b>で点が倍々。妨害をかわすと<b>+150</b>。</span></li>
+    </ul>
     <button class="big" id="startBtn">はじめる</button>
+    <button class="ghost" id="rankBtn">きろくを見る</button>
     <p class="best" id="bestText"></p>
   </section>
 
   <section id="hud" class="hide">
-    <div class="top"><span>お題 <b id="targetText">10.000秒</b></span><span id="roundText">1 / 3</span></div>
+    <div class="top"><span>お題 <b id="targetText">10.000秒</b></span><span id="roundText">1 / 5</span></div>
+    <div id="scoreBar"><span id="scoreNum">0</span><span id="scoreUnit">pt</span><span id="comboPill">×1</span></div>
+    <div id="hazardBanner"></div>
+    <div id="hazardActive"></div>
     <div id="count">3</div>
+    <div id="tapLayer"></div>
     <button id="stopBtn" disabled>とめる</button>
   </section>
 
   <section id="resultCard" class="card hide">
     <p id="resultVerdict">ぴったり！</p>
-    <p id="resultDiff">±0.000秒</p>
+    <p id="resultDiff">ズレ合計 0.000秒</p>
+    <p id="resultScore">0<small>pt</small></p>
     <ul class="rowlist" id="resultRows"></ul>
     <button class="big" id="againBtn">もういちど</button>
+    <button class="ghost" id="shareBtn">きろくをシェア</button>
     <button class="ghost" id="toTitleBtn">タイトルへ</button>
+  </section>
+
+  <section id="rankCard" class="card hide">
+    <h1 style="font-size:clamp(20px,6vw,26px)">この端末のランキング</h1>
+    <p class="sub" style="margin-bottom:12px">スコアはこの端末に保存されます。</p>
+    <ul class="rowlist" id="rankRows"></ul>
+    <button class="big" id="closeRank">とじる</button>
+    <button class="ghost" id="clearRank">記録を消す</button>
   </section>
 
   <footer id="siteFoot">GAME3 ・ 1日1本のブラウザゲーム</footer>
@@ -74,19 +123,36 @@ footer a{color:#7f93a8}
 
 <script>
 'use strict';
-// ===== 設定 =====
-// お題（秒）。3回の合計で採点する。
-const ROUNDS = [10, 7, 13];
-const STORE_KEY = 'jubyou-pittari.best.v1';
-// 3回のズレの「合計」（秒）で称号を決める
-const VERDICTS = [
-  { max: 0.15, label: '神の体内時計', text: 'ぴったり！' },
-  { max: 0.6,  label: 'かなり正確', text: 'すごい！' },
-  { max: 1.5,  label: 'ふつうの人', text: 'おしい！' },
-  { max: 3.0,  label: 'ちょっとズレ気味', text: 'んー…' },
-  { max: Infinity, label: '時計を見よう', text: 'ズレた…' }
+// ══════════════════════════════════════════════════════════════
+//  10秒、ぴったり。
+//  ・時計を見ずに、からだの感覚だけで「ちょうど」で止める。
+//  ・数えている最中に「妨害」が入る。妨害に動じず数え続けられるかが本題。
+//  ・ぴったりならコンボで点が倍々。妨害をかわすと加点。
+// ══════════════════════════════════════════════════════════════
+
+const ROUNDS = [
+  { t: 10, haz: [] },
+  { t: 7,  haz: ['shake'] },
+  { t: 13, haz: ['decoy', 'whisper'] },
+  { t: 6,  haz: ['tap', 'dark'] },
+  { t: 17, haz: ['clock', 'shake', 'decoy'] }
 ];
+
+const STORE_KEY = 'jubyou.v2';
+const HAZ_BONUS = 150;   // 妨害を1つかわすごと
+const TAP_BONUS = 150;   // ながらタップをやりきる
+
+const VERDICTS = [
+  { max: 0.15, label: '神の体内時計', text: 'ぴったり！', color: '#7ff0a8' },
+  { max: 0.6,  label: 'かなり正確',   text: 'すごい！',   color: '#7ff0a8' },
+  { max: 1.5,  label: 'ふつうの人',   text: 'おしい！',   color: '#ffce54' },
+  { max: 3.0,  label: 'ちょっとズレ気味', text: 'んー…', color: '#ff9a8b' },
+  { max: Infinity, label: '時計を見よう', text: 'ズレた…', color: '#ff6b57' }
+];
+
 const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
 
 function fmt(ms) {
   const s = ms / 1000;
@@ -97,26 +163,63 @@ function verdictOf(ms) {
   return VERDICTS.find(v => a < v.max) || VERDICTS[VERDICTS.length - 1];
 }
 
-// ===== 音（音のファイルを使わず、Web Audio でその場で作る） =====
-let ac = null;
-function beep(freq, dur = 0.06, type = 'sine', vol = 0.14) {
-  try {
-    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.type = type; o.frequency.value = freq;
-    g.gain.setValueAtTime(0, ac.currentTime);
-    g.gain.linearRampToValueAtTime(vol, ac.currentTime + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
-    o.connect(g).connect(ac.destination);
-    o.start(); o.stop(ac.currentTime + dur + 0.02);
-  } catch (e) { /* 音が出せない環境でも遊べるようにする */ }
+// ── 採点 ──────────────────────────────────────────────────────
+// ズレの大きさで段階的に点が出る。「近い」ほど跳ね上がるのが快感になる。
+function scoreFor(ms) {
+  const a = Math.abs(ms);
+  if (a < 50)   return { pt: 1000, tier: '神',     color: '#7ff0a8' };
+  if (a < 120)  return { pt: 700,  tier: '完璧',   color: '#7ff0a8' };
+  if (a < 300)  return { pt: 420,  tier: 'すごい', color: '#ffce54' };
+  if (a < 700)  return { pt: 200,  tier: 'いいね', color: '#ffce54' };
+  if (a < 1500) return { pt: 80,   tier: 'おしい', color: '#ff9a8b' };
+  return { pt: 0, tier: 'ズレた', color: '#ff6b57' };
 }
 
-// ===== 背景の粒（時間の手がかりにしないため、ゆっくり一定で漂うだけ） =====
+// ── 妨害の定義 ────────────────────────────────────────────────
+// どれも「数えるのを邪魔する」ことに一点集中させている。
+const HAZ = {
+  shake:   { name: 'ゆらし',       dur: 1.6, icon: '~' },
+  decoy:   { name: 'かぞえ直し',   dur: 2.3, icon: '?' },
+  whisper: { name: 'ささやき',     dur: 2.4, icon: '♪' },
+  tap:     { name: 'ながらタップ', dur: 3.0, icon: 'o' },
+  dark:    { name: '暗転',         dur: 1.9, icon: '#' },
+  clock:   { name: 'まちがい時計', dur: 2.6, icon: '@' }
+};
+
+// ══════════════════════════════════════════════════════════════
+//  音（ファイルなし・Web Audio で合成）
+// ══════════════════════════════════════════════════════════════
+let ac = null;
+function audioInit() {
+  if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+  try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; }
+}
+function beep(freq, dur = 0.06, type = 'sine', vol = 0.14, slideTo) {
+  if (!ac) return;
+  try {
+    const t = ac.currentTime;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(40, slideTo), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(ac.destination);
+    o.start(t); o.stop(t + dur + 0.03);
+  } catch (e) { /* 無音でも遊べる */ }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  画面（背景の粒）
+// ══════════════════════════════════════════════════════════════
 const cv = $('c'), ctx = cv.getContext('2d');
 let W = 0, H = 0, dpr = 1, dots = [];
 function resize() {
   dpr = Math.min(2, window.devicePixelRatio || 1);
+  const bar = document.getElementById('g3bar');
+  const barH = bar ? Math.round(bar.getBoundingClientRect().height) : 0;
+  document.documentElement.style.setProperty('--barH', barH + 'px');
   W = cv.clientWidth; H = cv.clientHeight;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -130,10 +233,57 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
+// ── サイト共通バー（#g3bar）の高さを追う ──
+// #g3bar はビルド時に body 末尾へ差し込まれるため、このスクリプトの実行時点では
+// まだ DOM に無いことがある。MutationObserver で出現を待ち、高さが変わるたびに resize()。
+(function watchG3Bar() {
+  let observed = false;
+  const measure = () => {
+    const bar = document.getElementById('g3bar');
+    if (!bar) return false;
+    const h = Math.round(bar.getBoundingClientRect().height);
+    const prev = parseInt(document.documentElement.style.getPropertyValue('--barH'), 10);
+    if (!Number.isFinite(prev) || prev !== h) resize();
+    if (!observed && window.ResizeObserver) {
+      observed = true;
+      try { new ResizeObserver(() => resize()).observe(bar); } catch (e) {}
+    }
+    return true;
+  };
+  if (!measure()) {
+    const mo = new MutationObserver(() => { if (measure()) mo.disconnect(); });
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+    // 保険
+    window.addEventListener('load', measure);
+    setTimeout(() => { measure(); mo.disconnect(); }, 1500);
+  }
+})();
+
+
+// 妨害の演出で使う一時的な状態（描画側が読む）
+const fx = {
+  shake: 0,          // 0..1
+  dark: 0,           // 0..1
+  decoys: [],        // {x,y,vy,ch,life,maxLife,rot}
+  clock: 0,          // 0..1（回転角の元）
+  clockOn: false,
+  flash: null        // {color, life}
+};
+
 let last = performance.now();
 function draw(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const dt = Math.min(0.25, (now - last) / 1000); last = now;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
+
+  // 揺れ
+  if (fx.shake > 0.001) {
+    const m = fx.shake * 13;
+    ctx.translate(rand(-m, m), rand(-m, m));
+  }
+
+  // 背景の粒
   for (const d of dots) {
     d.x += d.vx * dt; d.y += d.vy * dt;
     if (d.x < -10) d.x = W + 10; if (d.x > W + 10) d.x = -10;
@@ -143,144 +293,517 @@ function draw(now) {
     ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 1;
+
+  // かぞえ直し（数字がわいてくる）
+  for (let i = fx.decoys.length - 1; i >= 0; i--) {
+    const d = fx.decoys[i];
+    d.y += d.vy * dt; d.rot += dt * 0.9; d.life -= dt;
+    if (d.life <= 0) { fx.decoys.splice(i, 1); continue; }
+    const a = clamp(d.life / 0.5, 0, 1) * 0.5;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.translate(d.x, d.y);
+    ctx.rotate(Math.sin(d.rot) * 0.18);
+    ctx.fillStyle = '#ff6b57';
+    ctx.font = `900 ${d.size}px "Hiragino Sans","Noto Sans JP",sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(d.ch, 0, 0);
+    ctx.restore();
+  }
+
+  // まちがい時計（狂った速さで回る針）
+  if (fx.clockOn) {
+    const cx = W - 74, cy = 96, r = 46;
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = '#ff9a8b';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    for (let i = 0; i < 12; i++) {
+      const a2 = (i / 12) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a2) * (r - 8), cy + Math.sin(a2) * (r - 8));
+      ctx.lineTo(cx + Math.cos(a2) * r, cy + Math.sin(a2) * r);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#ff6b57';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(fx.clock) * (r - 12), cy + Math.sin(fx.clock) * (r - 12));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 暗転
+  if (fx.dark > 0.001) {
+    ctx.save();
+    ctx.globalAlpha = fx.dark * 0.93;
+    const g = ctx.createRadialGradient(W / 2, H * 0.36, 40, W / 2, H * 0.36, Math.max(W, H) * 0.78);
+    g.addColorStop(0, '#05070a');
+    g.addColorStop(1, '#000000');
+    ctx.fillStyle = g;
+    ctx.fillRect(-40, -40, W + 80, H + 80);
+    ctx.restore();
+  }
+
+  // フラッシュ
+  if (fx.flash) {
+    fx.flash.life -= dt;
+    if (fx.flash.life <= 0) fx.flash = null;
+    else {
+      ctx.save();
+      ctx.globalAlpha = clamp(fx.flash.life / 0.35, 0, 1) * 0.5;
+      ctx.fillStyle = fx.flash.color;
+      ctx.fillRect(-40, -40, W + 80, H + 80);
+      ctx.restore();
+    }
+  }
+
   requestAnimationFrame(draw);
 }
 
-// ===== ゲームの状態 =====
+// ══════════════════════════════════════════════════════════════
+//  ゲーム状態
+// ══════════════════════════════════════════════════════════════
 const game = {
   round: 0,
   results: [],
   startAt: 0,
   running: false,
-  timers: []
+  phase: 'title',
+  score: 0,
+  combo: 0,
+  maxCombo: 1,
+  hazDodged: 0,
+  timers: [],
+  activeHaz: null,
+  banner: 0
 };
-function clearTimers() { game.timers.forEach(clearTimeout); game.timers = []; }
+function clearTimers() {
+  game.timers.forEach(clearTimeout);
+  game.timers = [];
+  stopAllHazards();
+}
+function later(fn, ms) { game.timers.push(setTimeout(fn, ms)); }
 
 function show(id) {
-  ['titleCard', 'hud', 'resultCard'].forEach(k => $(k).classList.toggle('hide', k !== id));
+  ['titleCard', 'hud', 'resultCard', 'rankCard'].forEach(k => {
+    $(k).classList.toggle('hide', k !== id);
+  });
   $('siteFoot').classList.toggle('hide', id === 'hud');
 }
 
-function loadBest() {
+// ── 保存 ──────────────────────────────────────────────────────
+function loadSave() {
   try {
     const v = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
-    return v && typeof v.total === 'number' ? v : null;
-  } catch (e) { return null; }
+    if (!v || typeof v !== 'object') return { best: 0, bestTotal: 0, bestLabel: '', runs: [] };
+    return {
+      best: v.best | 0,
+      bestTotal: typeof v.bestTotal === 'number' ? v.bestTotal : Infinity,
+      bestLabel: v.bestLabel || '',
+      runs: Array.isArray(v.runs) ? v.runs.slice(0, 8) : []
+    };
+  } catch (e) { return { best: 0, bestTotal: 0, bestLabel: '', runs: [] }; }
 }
-function saveBest(best) {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(best)); } catch (e) {}
+function writeSave(s) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch (e) {}
 }
 function renderBest() {
-  const best = loadBest();
-  $('bestText').innerHTML = best
-    ? `ベスト：3回のズレ合計 <b>${best.total.toFixed(3)}秒</b>（${best.label}）`
-    : 'ベスト記録は、この端末に保存されます。';
+  const s = loadSave();
+  const parts = [];
+  if (s.best) parts.push(`ベスト <b>${s.best}pt</b>`);
+  if (isFinite(s.bestTotal) && s.bestTotal > 0) parts.push(`最小ズレ <b>${s.bestTotal.toFixed(3)}秒</b>`);
+  $('bestText').innerHTML = parts.length ? parts.join(' ・ ') : 'ベスト記録は、この端末に保存されます。';
 }
 
-// ===== 進行 =====
+// ══════════════════════════════════════════════════════════════
+//  妨害
+// ══════════════════════════════════════════════════════════════
+let tapEl = null, tapLeft = 0, tapDone = false;
+let whisperTimer = null, whisperEnd = 0;
+let decoyTimer = null;
+
+function stopAllHazards() {
+  fx.shake = 0; fx.dark = 0; fx.clockOn = false;
+  fx.decoys.length = 0;
+  if (tapEl) { tapEl.remove(); tapEl = null; }
+  if (whisperTimer) { clearTimeout(whisperTimer); whisperTimer = null; }
+  if (decoyTimer) { clearTimeout(decoyTimer); decoyTimer = null; }
+  game.activeHaz = null;
+  $('hazardActive').classList.remove('on');
+  $('hazardBanner').classList.remove('on');
+}
+
+function runHazard(key) {
+  const h = HAZ[key];
+  if (!h || !game.running) return;
+  game.activeHaz = { key, ...h };
+  const badge = $('hazardActive');
+  badge.textContent = `${h.icon} ${h.name}`;
+  badge.classList.add('on');
+  beep(220, 0.14, 'sawtooth', 0.1, 140);
+
+  const end = () => {
+    if (game.activeHaz && game.activeHaz.key === key) {
+      stopAllHazards();
+      // 妨害をかわした（=止められるまで生き延びた）
+      if (game.running) {
+        game.hazDodged++;
+        game.score += HAZ_BONUS;
+        updateScore(true);
+        popCount(`+${HAZ_BONUS}`, '#7ff0a8');
+      }
+    }
+  };
+
+  switch (key) {
+    case 'shake':
+      fx.shake = 1;
+      later(() => { fx.shake = 0; }, h.dur * 1000);
+      later(end, h.dur * 1000 + 10);
+      break;
+
+    case 'dark':
+      fx.dark = 1;
+      later(() => { fx.dark = 0; }, h.dur * 1000);
+      later(end, h.dur * 1000 + 10);
+      break;
+
+    case 'decoy': {
+      // 数字がわいてくる。読むと数えが乱れる。
+      const spawn = () => {
+        if (!game.running) return;
+        for (let i = 0; i < 3; i++) {
+          fx.decoys.push({
+            x: rand(W * 0.12, W * 0.88),
+            y: rand(H * 0.45, H * 0.92),
+            vy: rand(-46, -16),
+            ch: String(1 + Math.floor(Math.random() * 9)),
+            size: rand(26, 58),
+            life: rand(1.0, 1.9),
+            rot: rand(0, 6)
+          });
+        }
+        decoyTimer = setTimeout(spawn, 260);
+      };
+      spawn();
+      later(end, h.dur * 1000);
+      break;
+    }
+
+    case 'whisper': {
+      // テンポの狂った音。体内時計を引っぱる。
+      const tick = () => {
+        if (!game.running) return;
+        beep(rand(360, 520), 0.05, 'sine', 0.07);
+        whisperTimer = setTimeout(tick, rand(380, 760));
+      };
+      tick();
+      later(end, h.dur * 1000);
+      break;
+    }
+
+    case 'clock':
+      fx.clockOn = true;
+      fx.clock = -Math.PI / 2;
+      later(() => { fx.clockOn = false; }, h.dur * 1000);
+      later(end, h.dur * 1000 + 10);
+      break;
+
+    case 'tap': {
+      // 二重課題。数えながら、光った丸を決まった回数だけ押す。
+      tapDone = false;
+      tapLeft = 4;
+      const layer = $('tapLayer');
+      layer.innerHTML = '';
+      tapEl = document.createElement('div');
+      tapEl.className = 'tapDot';
+      const px = rand(W * 0.22, W * 0.78);
+      const py = rand(H * 0.46, H * 0.70);
+      tapEl.style.left = px + 'px';
+      tapEl.style.top = py + 'px';
+      tapEl.textContent = tapLeft;
+      tapEl.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        if (tapDone || !game.running) return;
+        tapLeft--;
+        beep(700 + (4 - tapLeft) * 90, 0.04, 'square', 0.09);
+        if (tapLeft <= 0) {
+          tapDone = true;
+          tapEl.remove(); tapEl = null;
+          game.score += TAP_BONUS;
+          updateScore(true);
+          popCount(`+${TAP_BONUS}`, '#7ff0a8');
+          beep(1180, 0.1, 'triangle', 0.13);
+        } else {
+          tapEl.textContent = tapLeft;
+          tapEl.style.transform = 'scale(0.9)';
+          setTimeout(() => { if (tapEl) tapEl.style.transform = ''; }, 70);
+        }
+      });
+      layer.appendChild(tapEl);
+      later(() => {
+        if (tapEl) { tapEl.remove(); tapEl = null; }
+      }, h.dur * 1000);
+      later(end, h.dur * 1000 + 10);
+      break;
+    }
+  }
+}
+
+// 時計の針を進める（draw から毎フレーム呼ぶ）
+function tickClock(dt) {
+  if (fx.clockOn) fx.clock += dt * Math.PI * 2 * 1.7;   // 1.7倍速。わざと狂わせる
+}
+
+// ══════════════════════════════════════════════════════════════
+//  HUD
+// ══════════════════════════════════════════════════════════════
+function updateScore(pop) {
+  $('scoreNum').textContent = game.score;
+  const pill = $('comboPill');
+  if (game.combo >= 2) {
+    pill.textContent = '×' + game.combo;
+    pill.classList.add('on');
+    if (pop) {
+      pill.classList.add('pop');
+      setTimeout(() => pill.classList.remove('pop'), 140);
+    }
+  } else {
+    pill.classList.remove('on');
+  }
+}
+
+let countTimer = null;
+function popCount(text, color) {
+  const el = $('count');
+  if (countTimer) clearTimeout(countTimer);
+  el.textContent = text;
+  el.style.color = color || '#ffce54';
+  el.style.fontSize = 'clamp(40px,12vw,72px)';
+  el.classList.add('on');
+  countTimer = setTimeout(() => {
+    el.classList.remove('on');
+    el.style.fontSize = '';
+    el.style.color = '';
+  }, 620);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  進行
+// ══════════════════════════════════════════════════════════════
 function startGame() {
+  audioInit();
   clearTimers();
-  game.round = 0; game.results = [];
+  game.round = 0;
+  game.results = [];
+  game.score = 0;
+  game.combo = 0;
+  game.maxCombo = 1;
+  game.hazDodged = 0;
+  game.phase = 'play';
+  updateScore(false);
   show('hud');
   nextRound();
 }
 
 function nextRound() {
-  const target = ROUNDS[game.round];
-  $('targetText').textContent = target.toFixed(3) + '秒';
+  const r = ROUNDS[game.round];
+  $('targetText').textContent = r.t.toFixed(3) + '秒';
   $('roundText').textContent = (game.round + 1) + ' / ' + ROUNDS.length;
   $('stopBtn').disabled = true;
-  countdown(3);
+  // 2回目以降はカウントダウンを短くしてテンポを上げる
+  countdown(game.round === 0 ? 3 : 2);
 }
 
 function countdown(n) {
   const el = $('count');
   el.textContent = n;
+  el.style.color = '';
+  el.style.fontSize = '';
   el.classList.add('on');
   beep(n === 1 ? 880 : 520, 0.07, 'triangle');
-  game.timers.push(setTimeout(() => {
+  later(() => {
     if (n > 1) { countdown(n - 1); }
-    else {
-      el.classList.remove('on');
-      beginMeasure();
-    }
-  }, 700));
+    else { el.classList.remove('on'); beginMeasure(); }
+  }, 620);
 }
 
 function beginMeasure() {
   beep(1240, 0.09, 'square', 0.1);
   $('stopBtn').disabled = false;
   game.running = true;
-  // 「はじめ」の合図と同時に計測開始（カウント音などは無し）
   game.startAt = performance.now();
+
+  // 妨害を予約する。予告 → 発動 の順で、身構える時間を作る。
+  const haz = ROUNDS[game.round].haz;
+  const T = ROUNDS[game.round].t;
+  if (haz.length) {
+    // 数え始めと終わりぎわは空けて、真ん中あたりに散らす
+    const slots = haz.map((_, i) => (0.22 + 0.5 * (i / Math.max(1, haz.length - 1) || 0)) * T);
+    const order = haz.map((k, i) => ({ k, t: slots[i] + rand(-0.35, 0.35) }));
+    order.sort((a, b) => a.t - b.t);
+    for (const o of order) {
+      const startMs = Math.max(400, o.t * 1000);
+      // 予告
+      later(() => {
+        if (!game.running) return;
+        const h = HAZ[o.k];
+        const b = $('hazardBanner');
+        b.textContent = `まもなく ${h.icon} ${h.name}`;
+        b.classList.add('on');
+        beep(660, 0.07, 'triangle', 0.09);
+        setTimeout(() => b.classList.remove('on'), 780);
+      }, Math.max(0, startMs - 850));
+      // 発動
+      later(() => runHazard(o.k), startMs);
+    }
+  }
 }
 
 function stop() {
   if (!game.running) return;
   game.running = false;
   $('stopBtn').disabled = true;
-  const target = ROUNDS[game.round];
-  const elapsed = (performance.now() - game.startAt) / 1000;
-  const diff = elapsed - target;         // + 遅れ, − 早い
-  beep(Math.abs(diff) < 0.08 ? 1560 : (diff < 0 ? 330 : 420), 0.08, 'triangle');
-  game.results.push({ target, elapsed, diff });
+  stopAllHazards();
 
-  // 1回ごとのズレを、一瞬だけ出す（次のお題の前に消す）
-  const el = $('count');
-  el.textContent = fmt(diff * 1000);
-  el.style.fontSize = 'clamp(40px,12vw,72px)';
-  el.classList.add('on');
-  game.timers.push(setTimeout(() => {
-    el.classList.remove('on');
-    el.style.fontSize = '';
-  }, 520));
+  const target = ROUNDS[game.round].t;
+  const elapsed = (performance.now() - game.startAt) / 1000;
+  const diff = elapsed - target;                 // + 遅れ, − 早い
+  const ms = diff * 1000;
+  const sc = scoreFor(ms);
+
+  // コンボ: 200pt 以上（±0.7秒以内）なら継続
+  if (sc.pt >= 200) {
+    game.combo++;
+    game.maxCombo = Math.max(game.maxCombo, game.combo);
+  } else {
+    game.combo = 0;
+  }
+  const mult = 1 + Math.max(0, game.combo - 1) * 0.25;
+  const gained = Math.round(sc.pt * mult);
+  game.score += gained;
+  updateScore(true);
+
+  game.results.push({ target, elapsed, diff, pt: gained, tier: sc.tier, haz: ROUNDS[game.round].haz.length });
+
+  // 結果の演出
+  beep(Math.abs(ms) < 80 ? 1560 : (diff < 0 ? 330 : 420), 0.08, 'triangle');
+  if (sc.pt >= 700) {
+    fx.flash = { color: sc.color, life: 0.35 };
+    beep(1760, 0.12, 'triangle', 0.12);
+  }
+  const praise = sc.tier === '神' ? '神！' : sc.tier === '完璧' ? '完璧！' : `${fmt(ms)}`;
+  popCount(praise, sc.color);
+
+  // コンボ表示
+  if (game.combo >= 2) {
+    later(() => popCount(`COMBO ×${game.combo}`, '#7ff0a8'), 0.05);
+  }
 
   if (game.round < ROUNDS.length - 1) {
     game.round++;
-    game.timers.push(setTimeout(nextRound, 620));
+    later(nextRound, 700);
   } else {
-    finish();
+    later(finish, 700);
   }
 }
 
 function finish() {
+  game.phase = 'result';
   const totalAbs = game.results.reduce((s, r) => s + Math.abs(r.diff), 0);
   const v = verdictOf(totalAbs);
   $('resultVerdict').textContent = v.text;
-  const d = $('resultDiff');
-  d.textContent = 'ズレ合計 ' + totalAbs.toFixed(3) + '秒';
-  d.className = totalAbs < 0.6 ? 'good' : (totalAbs > 3 ? 'bad' : '');
+  $('resultVerdict').style.color = v.color;
+  $('resultDiff').textContent = `ズレ合計 ${totalAbs.toFixed(3)}秒 ・ ${v.label}`;
+  $('resultScore').innerHTML = `${game.score}<small>pt</small>`;
 
   $('resultRows').innerHTML = game.results.map((r, i) =>
-    `<li><span>${i + 1}回目（お題 ${r.target}秒）</span><b>${fmt(r.diff * 1000)}</b></li>`
-  ).join('') + `<li><span>称号</span><b>${v.label}</b></li>`;
+    `<li><span>${i + 1}回目（${r.target}秒）${r.haz ? `<span class="hztag">妨害${r.haz}</span>` : ''}</span>` +
+    `<b>${fmt(r.diff * 1000)}<span style="color:${scoreFor(r.diff * 1000).color};margin-left:6px">${r.pt}pt</span></b></li>`
+  ).join('') +
+    `<li><span>最大コンボ</span><b>×${game.maxCombo}</b></li>` +
+    `<li><span>妨害をかわした</span><b>${game.hazDodged}回</b></li>`;
 
-  const best = loadBest();
-  if (!best || totalAbs < best.total) {
-    saveBest({ total: totalAbs, label: v.label, date: new Date().toISOString().slice(0, 10) });
-  }
+  // 保存
+  const s = loadSave();
+  if (game.score > s.best) s.best = game.score;
+  if (totalAbs < s.bestTotal) { s.bestTotal = totalAbs; s.bestLabel = v.label; }
+  s.runs.push({ s: game.score, total: +totalAbs.toFixed(3), label: v.label, t: Date.now() });
+  s.runs.sort((a, b) => b.s - a.s);
+  s.runs = s.runs.slice(0, 8);
+  writeSave(s);
+
   show('resultCard');
 }
 
-// ===== 入力 =====
+// ══════════════════════════════════════════════════════════════
+//  ランキング
+// ══════════════════════════════════════════════════════════════
+function renderRank() {
+  const s = loadSave();
+  const box = $('rankRows');
+  if (!s.runs.length) {
+    box.innerHTML = '<li><span>まだ記録がありません</span><b>—</b></li>';
+    return;
+  }
+  box.innerHTML = s.runs.map((r, i) => {
+    const d = new Date(r.t);
+    const md = `${d.getMonth() + 1}/${d.getDate()}`;
+    return `<li><span>${i + 1}. ${md} ・ ${r.label}</span>` +
+           `<b>${r.s}pt<span style="color:#8ea2b4;margin-left:6px">${r.total.toFixed(3)}秒</span></b></li>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  入力
+// ══════════════════════════════════════════════════════════════
 $('startBtn').addEventListener('click', startGame);
 $('againBtn').addEventListener('click', startGame);
-$('toTitleBtn').addEventListener('click', () => { clearTimers(); show('titleCard'); renderBest(); });
+$('toTitleBtn').addEventListener('click', () => { clearTimers(); game.phase = 'title'; show('titleCard'); renderBest(); });
+$('rankBtn').addEventListener('click', () => { renderRank(); show('rankCard'); });
+$('closeRank').addEventListener('click', () => show('titleCard'));
+$('clearRank').addEventListener('click', () => {
+  writeSave({ best: 0, bestTotal: Infinity, bestLabel: '', runs: [] });
+  renderRank();
+});
+$('shareBtn').addEventListener('click', async () => {
+  const totalAbs = game.results.reduce((s, r) => s + Math.abs(r.diff), 0);
+  const v = verdictOf(totalAbs);
+  const txt = `「10秒、ぴったり。」で ${game.score}pt！\n${v.label}（ズレ合計 ${totalAbs.toFixed(3)}秒）・妨害を${game.hazDodged}回かわした。\nあなたの体内時計は？`;
+  const url = location.href.split('?')[0];
+  try {
+    if (navigator.share) { await navigator.share({ text: txt, url }); return; }
+  } catch (e) { /* キャンセル */ }
+  try { await navigator.clipboard.writeText(txt + '\n' + url); beep(1180, 0.08, 'triangle', 0.1); } catch (e) {}
+});
+
 $('stopBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); stop(); });
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Space' || e.code === 'Enter') {
     e.preventDefault();
-    if (!game.running) {
-      if (!$('titleCard').classList.contains('hide')) startGame();
-      else if (!$('resultCard').classList.contains('hide')) startGame();
-    } else stop();
+    if (game.running) { stop(); return; }
+    if (game.phase === 'title' || game.phase === 'result') startGame();
   }
 });
 
-// ===== 起動 =====
+// ══════════════════════════════════════════════════════════════
+//  起動
+// ══════════════════════════════════════════════════════════════
 resize();
 renderBest();
 show('titleCard');
+
+// 時計の針（draw の dt を使いたいのでここで回す）
+(function clockLoop() {
+  requestAnimationFrame(() => {
+    tickClock(1 / 60);
+    clockLoop();
+  });
+})();
+
 requestAnimationFrame((t) => { last = t; draw(t); });
 </script>
 </body>
