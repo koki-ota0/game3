@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>10秒、ぴったり。</title>
+<meta name="description" content="時計を見ずに、からだで数えて10秒をぴったりで止めるゲーム。">
+<meta name="theme-color" content="#0e1117">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230e1117'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%23ffce54' stroke-width='4'/%3E%3Cpath d='M32 18v14l10 6' stroke='%23ffce54' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#0e1117;color:#eef2f7;font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;user-select:none;-webkit-user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+#ui{position:fixed;inset:0;pointer-events:none}
+#ui>*{pointer-events:auto}
+.hide{display:none!important}
+button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer}
+
+.card{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(88vw,520px);background:#141a24ee;border:1px solid #ffffff22;border-radius:20px;padding:26px 22px;text-align:center;box-shadow:0 18px 50px #0008;backdrop-filter:blur(6px)}
+.card h1{margin:0 0 6px;font-size:clamp(26px,8vw,40px);letter-spacing:.02em}
+.card .sub{margin:0 0 18px;color:#a7b6c6;font-size:clamp(13px,3.6vw,15px);line-height:1.6}
+.big{display:block;width:100%;margin:8px 0 0;padding:16px;border-radius:14px;background:#ffce54;color:#131820;font-weight:800;font-size:clamp(17px,4.6vw,20px)}
+.big:active{transform:scale(.98)}
+.ghost{display:block;width:100%;margin:10px 0 0;padding:13px;border-radius:14px;border:1px solid #ffffff2e;color:#cfdae6;font-weight:700;font-size:clamp(14px,3.8vw,16px);background:#ffffff08}
+.best{margin:16px 0 0;color:#8ea2b4;font-size:12.5px;line-height:1.6}
+.best b{color:#ffce54;font-variant-numeric:tabular-nums}
+
+#hud{position:absolute;inset:0;pointer-events:none}
+#hud .top{position:absolute;top:calc(14px + env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;font-size:13px;color:#9fb0c0}
+#hud .top b{color:#eef2f7;font-variant-numeric:tabular-nums}
+#count{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%);font-size:clamp(72px,24vw,150px);font-weight:900;line-height:1;color:#ffce54;text-shadow:0 6px 0 #0006;opacity:0;transition:opacity .12s,transform .12s}
+#count.on{opacity:1}
+#stopBtn{position:absolute;left:50%;bottom:max(96px,calc(82px + env(safe-area-inset-bottom)));transform:translateX(-50%);width:min(54vw,210px);height:min(54vw,210px);border-radius:50%;background:radial-gradient(circle at 50% 38%,#ff7d6b,#e2473a 62%,#b02e25);color:#fff;font-size:clamp(20px,5.4vw,24px);font-weight:900;letter-spacing:.06em;box-shadow:0 10px 0 #0006,inset 0 -6px 0 #00000028;display:flex;align-items:center;justify-content:center}
+#stopBtn:active{transform:translateX(-50%) scale(.96);box-shadow:0 4px 0 #0006,inset 0 -4px 0 #00000028}
+#stopBtn:disabled{filter:grayscale(.5) brightness(.8)}
+#resultVerdict{font-size:clamp(28px,9vw,44px);font-weight:900;color:#ffce54;margin:0 0 4px}
+#resultDiff{font-size:clamp(22px,7vw,32px);font-weight:900;font-variant-numeric:tabular-nums;margin:0 0 14px}
+#resultDiff.good{color:#7ff0a8}#resultDiff.bad{color:#ff9a8b}
+.rowlist{margin:0 0 16px;padding:0;list-style:none;font-size:13.5px;color:#a9b8c6}
+.rowlist li{display:flex;justify-content:space-between;gap:10px;padding:7px 2px;border-bottom:1px solid #ffffff14}
+.rowlist li b{color:#eef2f7;font-variant-numeric:tabular-nums}
+#titleCard .titleBig{font-size:clamp(30px,9vw,46px);font-weight:900;letter-spacing:.02em;margin:0 0 10px;color:#ffce54}
+footer{position:absolute;left:0;right:0;bottom:calc(10px + env(safe-area-inset-bottom));text-align:center;font-size:11px;color:#5f7182}
+footer a{color:#7f93a8}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+
+  <section id="titleCard" class="card">
+    <p class="titleBig">10秒、ぴったり。</p>
+    <p class="sub">時計はかくれています。<br>からだの感覚だけで数えて、ぴったりのところで止めてください。</p>
+    <button class="big" id="startBtn">はじめる</button>
+    <p class="best" id="bestText"></p>
+  </section>
+
+  <section id="hud" class="hide">
+    <div class="top"><span>お題 <b id="targetText">10.000秒</b></span><span id="roundText">1 / 3</span></div>
+    <div id="count">3</div>
+    <button id="stopBtn" disabled>とめる</button>
+  </section>
+
+  <section id="resultCard" class="card hide">
+    <p id="resultVerdict">ぴったり！</p>
+    <p id="resultDiff">±0.000秒</p>
+    <ul class="rowlist" id="resultRows"></ul>
+    <button class="big" id="againBtn">もういちど</button>
+    <button class="ghost" id="toTitleBtn">タイトルへ</button>
+  </section>
+
+  <footer id="siteFoot">GAME3 ・ 1日1本のブラウザゲーム</footer>
+</div>
+
+<script>
+'use strict';
+// ===== 設定 =====
+// お題（秒）。3回の合計で採点する。
+const ROUNDS = [10, 7, 13];
+const STORE_KEY = 'jubyou-pittari.best.v1';
+// 3回のズレの「合計」（秒）で称号を決める
+const VERDICTS = [
+  { max: 0.15, label: '神の体内時計', text: 'ぴったり！' },
+  { max: 0.6,  label: 'かなり正確', text: 'すごい！' },
+  { max: 1.5,  label: 'ふつうの人', text: 'おしい！' },
+  { max: 3.0,  label: 'ちょっとズレ気味', text: 'んー…' },
+  { max: Infinity, label: '時計を見よう', text: 'ズレた…' }
+];
+const $ = (id) => document.getElementById(id);
+
+function fmt(ms) {
+  const s = ms / 1000;
+  return (s >= 0 ? '+' : '−') + Math.abs(s).toFixed(3) + '秒';
+}
+function verdictOf(ms) {
+  const a = Math.abs(ms);
+  return VERDICTS.find(v => a < v.max) || VERDICTS[VERDICTS.length - 1];
+}
+
+// ===== 音（音のファイルを使わず、Web Audio でその場で作る） =====
+let ac = null;
+function beep(freq, dur = 0.06, type = 'sine', vol = 0.14) {
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, ac.currentTime);
+    g.gain.linearRampToValueAtTime(vol, ac.currentTime + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + dur);
+    o.connect(g).connect(ac.destination);
+    o.start(); o.stop(ac.currentTime + dur + 0.02);
+  } catch (e) { /* 音が出せない環境でも遊べるようにする */ }
+}
+
+// ===== 背景の粒（時間の手がかりにしないため、ゆっくり一定で漂うだけ） =====
+const cv = $('c'), ctx = cv.getContext('2d');
+let W = 0, H = 0, dpr = 1, dots = [];
+function resize() {
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const n = Math.round((W * H) / 26000);
+  dots = Array.from({ length: n }, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    r: 0.6 + Math.random() * 1.8,
+    vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6,
+    a: 0.15 + Math.random() * 0.4
+  }));
+}
+window.addEventListener('resize', resize);
+
+let last = performance.now();
+function draw(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  ctx.clearRect(0, 0, W, H);
+  for (const d of dots) {
+    d.x += d.vx * dt; d.y += d.vy * dt;
+    if (d.x < -10) d.x = W + 10; if (d.x > W + 10) d.x = -10;
+    if (d.y < -10) d.y = H + 10; if (d.y > H + 10) d.y = -10;
+    ctx.globalAlpha = d.a;
+    ctx.fillStyle = '#ffce54';
+    ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  requestAnimationFrame(draw);
+}
+
+// ===== ゲームの状態 =====
+const game = {
+  round: 0,
+  results: [],
+  startAt: 0,
+  running: false,
+  timers: []
+};
+function clearTimers() { game.timers.forEach(clearTimeout); game.timers = []; }
+
+function show(id) {
+  ['titleCard', 'hud', 'resultCard'].forEach(k => $(k).classList.toggle('hide', k !== id));
+  $('siteFoot').classList.toggle('hide', id === 'hud');
+}
+
+function loadBest() {
+  try {
+    const v = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+    return v && typeof v.total === 'number' ? v : null;
+  } catch (e) { return null; }
+}
+function saveBest(best) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(best)); } catch (e) {}
+}
+function renderBest() {
+  const best = loadBest();
+  $('bestText').innerHTML = best
+    ? `ベスト：3回のズレ合計 <b>${best.total.toFixed(3)}秒</b>（${best.label}）`
+    : 'ベスト記録は、この端末に保存されます。';
+}
+
+// ===== 進行 =====
+function startGame() {
+  clearTimers();
+  game.round = 0; game.results = [];
+  show('hud');
+  nextRound();
+}
+
+function nextRound() {
+  const target = ROUNDS[game.round];
+  $('targetText').textContent = target.toFixed(3) + '秒';
+  $('roundText').textContent = (game.round + 1) + ' / ' + ROUNDS.length;
+  $('stopBtn').disabled = true;
+  countdown(3);
+}
+
+function countdown(n) {
+  const el = $('count');
+  el.textContent = n;
+  el.classList.add('on');
+  beep(n === 1 ? 880 : 520, 0.07, 'triangle');
+  game.timers.push(setTimeout(() => {
+    if (n > 1) { countdown(n - 1); }
+    else {
+      el.classList.remove('on');
+      beginMeasure();
+    }
+  }, 700));
+}
+
+function beginMeasure() {
+  beep(1240, 0.09, 'square', 0.1);
+  $('stopBtn').disabled = false;
+  game.running = true;
+  // 「はじめ」の合図と同時に計測開始（カウント音などは無し）
+  game.startAt = performance.now();
+}
+
+function stop() {
+  if (!game.running) return;
+  game.running = false;
+  $('stopBtn').disabled = true;
+  const target = ROUNDS[game.round];
+  const elapsed = (performance.now() - game.startAt) / 1000;
+  const diff = elapsed - target;         // + 遅れ, − 早い
+  beep(Math.abs(diff) < 0.08 ? 1560 : (diff < 0 ? 330 : 420), 0.08, 'triangle');
+  game.results.push({ target, elapsed, diff });
+
+  // 1回ごとのズレを、一瞬だけ出す（次のお題の前に消す）
+  const el = $('count');
+  el.textContent = fmt(diff * 1000);
+  el.style.fontSize = 'clamp(40px,12vw,72px)';
+  el.classList.add('on');
+  game.timers.push(setTimeout(() => {
+    el.classList.remove('on');
+    el.style.fontSize = '';
+  }, 520));
+
+  if (game.round < ROUNDS.length - 1) {
+    game.round++;
+    game.timers.push(setTimeout(nextRound, 620));
+  } else {
+    finish();
+  }
+}
+
+function finish() {
+  const totalAbs = game.results.reduce((s, r) => s + Math.abs(r.diff), 0);
+  const v = verdictOf(totalAbs);
+  $('resultVerdict').textContent = v.text;
+  const d = $('resultDiff');
+  d.textContent = 'ズレ合計 ' + totalAbs.toFixed(3) + '秒';
+  d.className = totalAbs < 0.6 ? 'good' : (totalAbs > 3 ? 'bad' : '');
+
+  $('resultRows').innerHTML = game.results.map((r, i) =>
+    `<li><span>${i + 1}回目（お題 ${r.target}秒）</span><b>${fmt(r.diff * 1000)}</b></li>`
+  ).join('') + `<li><span>称号</span><b>${v.label}</b></li>`;
+
+  const best = loadBest();
+  if (!best || totalAbs < best.total) {
+    saveBest({ total: totalAbs, label: v.label, date: new Date().toISOString().slice(0, 10) });
+  }
+  show('resultCard');
+}
+
+// ===== 入力 =====
+$('startBtn').addEventListener('click', startGame);
+$('againBtn').addEventListener('click', startGame);
+$('toTitleBtn').addEventListener('click', () => { clearTimers(); show('titleCard'); renderBest(); });
+$('stopBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); stop(); });
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' || e.code === 'Enter') {
+    e.preventDefault();
+    if (!game.running) {
+      if (!$('titleCard').classList.contains('hide')) startGame();
+      else if (!$('resultCard').classList.contains('hide')) startGame();
+    } else stop();
+  }
+});
+
+// ===== 起動 =====
+resize();
+renderBest();
+show('titleCard');
+requestAnimationFrame((t) => { last = t; draw(t); });
+</script>
+</body>
+</html>

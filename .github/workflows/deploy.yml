@@ -1,0 +1,51 @@
+# 公開（デプロイ）: main に push されたら、ビルドして GitHub Pages に出す。
+#
+# N.K. Works は「本体を main に直接置いて、GitHub Pages の「Deploy from a branch」で出す」
+# 形だが、こちらは Actions でビルドしてから出す（build → deploy の2ジョブ）。
+# こうすると、games.json から一覧・説明ページ・サイトマップを作る処理を、毎回自動で回せる。
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 組み立て
+        run: npm run build
+      - name: 公開まえの確認（リンク切れ・1ファイルの約束・サイトマップ）
+        run: npm run check
+      - uses: actions/configure-pages@v5
+        with:
+          # Pages がまだ有効になっていない場合に、この workflow から有効化を試みる
+          # （リポジトリ管理者の権限が要る。失敗する場合は Settings → Pages → Source: GitHub Actions を手で選ぶ）
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

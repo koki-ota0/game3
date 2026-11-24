@@ -1,0 +1,13 @@
+{
+  "name": "game3",
+  "private": true,
+  "version": "0.1.0",
+  "description": "1日1本のブラウザゲーム（GAME3）",
+  "scripts": {
+    "build": "node tools/build.js",
+    "check": "node tools/check.js",
+    "new": "node tools/new-game.mjs",
+    "dev": "node tools/dev.js"
+  },
+  "engines": { "node": ">=20" }
+}

@@ -1,0 +1,59 @@
+# 1日1本を続けるための「合図」。毎朝、まだ今日のゲームが無ければ Issue を作る。
+#
+# なぜ Issue なのか: 1日1本の運用でいちばん怖いのは「今日はいいか」で1日空くこと。
+# 公開されていない日を Issue にして、あとから「何日続いたか」を数えられるようにする。
+name: daily-check
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # 毎日 09:00 JST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 今日のゲームがあるか
+        id: today
+        run: |
+          TODAY=$(TZ=Asia/Tokyo date +%F)
+          echo "today=$TODAY" >> "$GITHUB_OUTPUT"
+          if grep -q "\"date\": \"$TODAY\"" games.json; then
+            echo "published=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=0" >> "$GITHUB_OUTPUT"
+          fi
+          TOTAL=$(node -e "console.log(require('./games.json').games.filter(g=>g.status!=='draft').length)")
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+      - name: まだなら Issue を作る
+        if: steps.today.outputs.published == '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const today = '${{ steps.today.outputs.today }}';
+            const total = '${{ steps.today.outputs.total }}';
+            const title = `🎮 ${today} のゲームがまだありません（通算 ${total} 本）`;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: 'daily'
+            });
+            if (issues.some(i => i.title.includes(today))) return;
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title, labels: ['daily'],
+              body: [
+                `きょう（${today}）はまだゲームが公開されていません。`,
+                '',
+                '1本出すときの手順:',
+                '1. `npm run new -- <slug> "タイトル" "キャッチコピー"`',
+                '2. `site/<slug>/index.html` を作りこむ（1ファイルで完結。画像も音もその場で描く／鳴らす）',
+                '3. `npm run build && npm run check`',
+                '4. `main` に push → 自動で公開',
+                '',
+                '出したら、この Issue を閉じてください。'
+              ].join('\n')
+            });
