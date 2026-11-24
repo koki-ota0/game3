@@ -53,6 +53,13 @@ for (const f of htmlFiles) {
       ? path.join(DIST, target.slice(('/' === target[0] ? 1 : 0)))
       : path.resolve(dir, target);
     let p = abs;
+    // 公開されるのは dist/ の中だけ。../ で dist/ の外へ出る相対リンクは、
+    // たまたま隣のフォルダが存在していても「本番では 404」なのでエラーにする。
+    const relToDist = path.relative(DIST, abs);
+    if (relToDist.startsWith('..') || path.isAbsolute(relToDist)) {
+      err(`dist/ の外を指すリンク: ${rel(f)} -> ${target}`);
+      continue;
+    }
     if (!fs.existsSync(p)) {
       // ディレクトリ URL（末尾スラッシュ無しの /games）は index.html を見る
       if (fs.existsSync(path.join(abs, 'index.html'))) continue;

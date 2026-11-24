@@ -186,7 +186,7 @@ ${header()}
 <main class="wrap">
 <h1 class="hero">${esc(site.tagline || '')}</h1>
 <p class="lead">${esc(site.description || '')}</p>
-<ul class="grid">${list.map(card).join('\n')}</ul>
+<ul class="grid">${list.map((g) => card(g, 0)).join('\n')}</ul>
 <p class="more"><a class="btn" href="${abs('games/')}">ゲーム一覧（全${games.length}本）</a></p>
 </main>
 ${footer()}
